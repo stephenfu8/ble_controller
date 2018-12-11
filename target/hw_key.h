@@ -63,11 +63,11 @@ extern "C" {
 /*********************************************************************
  * CONSTANTS
  */
-#define KEY_BTN               0x1000 
+#define KEY_BTN               0x0010 
 #define KEY_BTN1              0x0001
 #define KEY_BTN2              0x0002
-#define KEY_BTN3              0x0001
-#define KEY_BTN4              0x0002
+#define KEY_BTN3              0x0004
+#define KEY_BTN4              0x0008
  
 
 // Debounce timeout in milliseconds

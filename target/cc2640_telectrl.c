@@ -74,7 +74,7 @@
 
 const PIN_Config BoardGpioInitTable[] = {
 
-#ifdef TELE_LOCAL
+#ifdef TELE_LOCAL_1
     Board_LED1R    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW   | PIN_PUSHPULL | PIN_DRVSTR_MAX,     /* LED initially off               */
     Board_LED1G    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW   | PIN_PUSHPULL | PIN_DRVSTR_MAX,     /* LED initially off               */
     Board_LED1B    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW   | PIN_PUSHPULL | PIN_DRVSTR_MAX,     /* LED initially off               */

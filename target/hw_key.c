@@ -118,6 +118,7 @@ void Board_initKeys(keysPressedCB_t appKeyCB)
   // Initialize KEY pins. Enable int after callback registered
   hKeyPins = PIN_open(&keyPins, keyPinsCfg);
   PIN_registerIntCb(hKeyPins, Board_keyCallback);
+  
 #ifdef TELE_LOCAL
   PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY        | PIN_IRQ_NEGEDGE);
 #ifdef POWER_SAVING
@@ -178,26 +179,26 @@ static void Board_keyChangeHandler(UArg a0)
 #ifdef TELE_LOCAL
     if ( PIN_getInputValue(Board_KEY) == 0 )
     {
-      keysPressed |= Board_KEY;
+      keysPressed |= KEY_BTN;
     }
 #endif    
 #ifdef TELE_REMOTE
     if ( PIN_getInputValue(Board_KEY1) == 0 )
     {
-      keysPressed |= Board_KEY1;
+      keysPressed |= KEY_BTN1;
     }
 
     if ( PIN_getInputValue(Board_KEY2) == 0 )
     {
-      keysPressed |= Board_KEY2;
+      keysPressed |= KEY_BTN2;
     }
     if ( PIN_getInputValue(Board_KEY3) == 0 )
     {
-      keysPressed |= Board_KEY3;
+      keysPressed |= KEY_BTN3;
     }
     if ( PIN_getInputValue(Board_KEY4) == 0 )
     {
-      keysPressed |= Board_KEY4;
+      keysPressed |= KEY_BTN4;
     }
 #endif
     // Notify the application

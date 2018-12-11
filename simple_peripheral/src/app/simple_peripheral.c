@@ -81,7 +81,7 @@
 #endif //USE_RCOSC
 
 #include <ti/mw/display/Display.h>
-#include "board_key.h"
+#include "hw_key.h"
 
 #include "board.h"
 
@@ -155,7 +155,7 @@
 #define SBP_CHAR_CHANGE_EVT                   0x0002
 #define SBP_PERIODIC_EVT                      0x0004
 #define SBP_CONN_EVT_END_EVT                  0x0008
-
+#define SBC_KEY_CHANGE_EVT                    0x0010
 /*********************************************************************
  * TYPEDEFS
  */
@@ -305,6 +305,8 @@ static void SimpleBLEPeripheral_stateChangeCB(gaprole_States_t newState);
 static void SimpleBLEPeripheral_charValueChangeCB(uint8_t paramID);
 #endif //!FEATURE_OAD_ONCHIP
 static void SimpleBLEPeripheral_enqueueMsg(uint8_t event, uint8_t state);
+void SimpleBLECentral_keyChangeHandler(uint8 keys);
+static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys);
 
 #ifdef FEATURE_OAD
 void SimpleBLEPeripheral_processOadWriteCB(uint8_t event, uint16_t connHandle,
@@ -425,7 +427,7 @@ static void SimpleBLEPeripheral_init(void)
                       SBP_PERIODIC_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT);
 
   dispHandle = Display_open(Display_Type_LCD, NULL);
-
+  Board_initKeys(SimpleBLECentral_keyChangeHandler);      //key button 
   // Setup the GAP
   GAP_SetParamValue(TGAP_CONN_PAUSE_PERIPHERAL, DEFAULT_CONN_PAUSE_PERIPHERAL);
 
@@ -867,7 +869,11 @@ static void SimpleBLEPeripheral_processAppMsg(sbpEvt_t *pMsg)
     case SBP_CHAR_CHANGE_EVT:
       SimpleBLEPeripheral_processCharValueChangeEvt(pMsg->hdr.state);
       break;
-
+      
+    case SBC_KEY_CHANGE_EVT:
+      SimpleBLEPeripheral_handleKeys(0, pMsg->hdr.state);
+      break;
+      
     default:
       // Do nothing.
       break;
@@ -1227,3 +1233,49 @@ static void SimpleBLEPeripheral_enqueueMsg(uint8_t event, uint8_t state)
 
 /*********************************************************************
 *********************************************************************/
+/*********************************************************************
+ * @fn      SimpleBLECentral_keyChangeHandler
+ *
+ * @brief   Key event handler function
+ *
+ * @param   a0 - ignored
+ *
+ * @return  none
+ */
+void SimpleBLECentral_keyChangeHandler(uint8 keys)
+{
+  SimpleBLEPeripheral_enqueueMsg(SBC_KEY_CHANGE_EVT, keys);
+}
+static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys)
+{
+   (void)shift;  // Intentionally unreferenced parameter
+#ifdef TELE_LOCAL   
+  if (keys & KEY_BTN)        //key function
+  {
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
+                               "A");
+  }
+#endif 
+#ifdef TELE_REMOTE  
+  if (keys & KEY_BTN1)        //key function
+  {
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
+                               "1");
+  }
+  if (keys & KEY_BTN2)        //key function
+  {
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
+                               "2");
+  }
+  if (keys & KEY_BTN3)        //key function
+  {
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
+                               "3");
+  }
+  if (keys & KEY_BTN4)        //key function
+  {
+        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
+                               "4");
+  }
+#endif
+}

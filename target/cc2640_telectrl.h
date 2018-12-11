@@ -92,8 +92,8 @@ extern const PIN_Config BoardGpioInitTable[];
 #define Board_LED2R                       IOID_5 
 #define Board_LED2G                       IOID_6
 #define Board_LED2B                       IOID_7 
-#define Board_ADC                        IOID_8 
-#define Board_KEY                        IOID_9 
+#define Board_ADC                         IOID_8 
+#define Board_KEY                         IOID_9 
 
 
 /* PWM outputs */
