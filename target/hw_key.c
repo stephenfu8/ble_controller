@@ -49,8 +49,8 @@
  */
 #include <ti/drivers/pin/PINCC26XX.h>
 #include "util.h"
-#include "LAUNCHIOT_CC2650_RGZ.h"
-#include "iotboard_key.h"
+#include "cc2640_telectrl.h"
+#include "hw_key.h"
 
 /*********************************************************************
  * TYPEDEFS
@@ -85,9 +85,16 @@ Hwi_Struct callbackHwiKeys;
 // PIN configuration structure to set all KEY pins as inputs with pullups enabled
 PIN_Config keyPinsCfg[] =
 {
-    Board_BTN1          | PIN_GPIO_OUTPUT_DIS  | PIN_INPUT_EN  |  PIN_PULLUP,
-    Board_BTN2          | PIN_GPIO_OUTPUT_DIS  | PIN_INPUT_EN  |  PIN_PULLUP,
-
+#ifdef TELE_LOCAL
+    Board_KEY          | PIN_GPIO_OUTPUT_DIS  | PIN_INPUT_EN  |  PIN_PULLUP,
+#endif
+      
+#ifdef TELE_REMOTE      
+    Board_KEY1          | PIN_GPIO_OUTPUT_DIS  | PIN_INPUT_EN  |  PIN_PULLUP,
+    Board_KEY2          | PIN_GPIO_OUTPUT_DIS  | PIN_INPUT_EN  |  PIN_PULLUP,
+    Board_KEY3          | PIN_GPIO_OUTPUT_DIS  | PIN_INPUT_EN  |  PIN_PULLUP,
+    Board_KEY4          | PIN_GPIO_OUTPUT_DIS  | PIN_INPUT_EN  |  PIN_PULLUP,
+#endif
     PIN_TERMINATE
 };
 
@@ -111,17 +118,27 @@ void Board_initKeys(keysPressedCB_t appKeyCB)
   // Initialize KEY pins. Enable int after callback registered
   hKeyPins = PIN_open(&keyPins, keyPinsCfg);
   PIN_registerIntCb(hKeyPins, Board_keyCallback);
-
-  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_BTN1        | PIN_IRQ_NEGEDGE);
-  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_BTN2        | PIN_IRQ_NEGEDGE);
+#ifdef TELE_LOCAL
+  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY        | PIN_IRQ_NEGEDGE);
+#ifdef POWER_SAVING
+  //Enable wakeup
+  PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_KEY | PINCC26XX_WAKEUP_NEGEDGE);
+#endif //POWER_SAVING
+#endif
+  
+#ifdef TELE_REMOTE
+  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY1        | PIN_IRQ_NEGEDGE);
+  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY2        | PIN_IRQ_NEGEDGE);
+  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY3        | PIN_IRQ_NEGEDGE);
+  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY4        | PIN_IRQ_NEGEDGE);
 
 
 #ifdef POWER_SAVING
   //Enable wakeup
-  PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_BTN1 | PINCC26XX_WAKEUP_NEGEDGE);
-  PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_BTN2 | PINCC26XX_WAKEUP_NEGEDGE);
+  PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_KEY1 | PINCC26XX_WAKEUP_NEGEDGE);
+  PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_KEY2 | PINCC26XX_WAKEUP_NEGEDGE);
 #endif //POWER_SAVING
-  
+#endif  
   // Setup keycallback for keys
   Util_constructClock(&keyChangeClock, Board_keyChangeHandler,
                       KEY_DEBOUNCE_TIMEOUT, 0, false, 0);
@@ -158,17 +175,31 @@ static void Board_keyChangeHandler(UArg a0)
   if (appKeyChangeHandler != NULL)
   {
     keysPressed = 0;
-
-    if ( PIN_getInputValue(Board_BTN1) == 0 )
+#ifdef TELE_LOCAL
+    if ( PIN_getInputValue(Board_KEY) == 0 )
     {
-      keysPressed |= KEY_BTN1;
+      keysPressed |= Board_KEY;
+    }
+#endif    
+#ifdef TELE_REMOTE
+    if ( PIN_getInputValue(Board_KEY1) == 0 )
+    {
+      keysPressed |= Board_KEY1;
     }
 
-    if ( PIN_getInputValue(Board_BTN2) == 0 )
+    if ( PIN_getInputValue(Board_KEY2) == 0 )
     {
-      keysPressed |= KEY_BTN2;
+      keysPressed |= Board_KEY2;
     }
-
+    if ( PIN_getInputValue(Board_KEY3) == 0 )
+    {
+      keysPressed |= Board_KEY3;
+    }
+    if ( PIN_getInputValue(Board_KEY4) == 0 )
+    {
+      keysPressed |= Board_KEY4;
+    }
+#endif
     // Notify the application
     (*appKeyChangeHandler)(keysPressed);
   }

@@ -41,18 +41,6 @@ extern "C" {
 
 #include "cc2640_telectrl.h"
 
-/* These #defines allow us to reuse TI-RTOS across other device families */
-#define     Board_LED0              Board_DK_LED3
-#define     Board_LED1              Board_DK_LED4
-#define     Board_LED2              Board_LED0
-
-#define     Board_BUTTON0           Board_KEY_UP
-#define     Board_BUTTON1           Board_KEY_DOWN
-
-#define     Board_UART0             Board_UART
-#define     Board_AES0              Board_AES
-#define     Board_WATCHDOG0         Board_WATCHDOG
-
 #define     Board_initGeneral() { \
     Power_init(); \
     if (PIN_init(BoardGpioInitTable) != PIN_SUCCESS) \
