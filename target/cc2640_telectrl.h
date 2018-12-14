@@ -97,13 +97,14 @@ extern const PIN_Config BoardGpioInitTable[];
 
 
 /* PWM outputs */
-#define Board_PWMPIN0                       Board_LED1R
-#define Board_PWMPIN1                       Board_LED1G
-#define Board_PWMPIN2                       Board_LED1B
-#define Board_PWMPIN3                       Board_LED2R
-#define Board_PWMPIN4                       Board_LED2G
-#define Board_PWMPIN5                       Board_LED2B
-
+#define Board_PWMPIN0         Board_LED1R
+#define Board_PWMPIN1         Board_LED1G
+#define Board_PWMPIN2         Board_LED1B
+/* //LED2 for GPIO application test
+#define Board_PWMPIN3         Board_LED2R
+#define Board_PWMPIN4         Board_LED2G
+#define Board_PWMPIN5         Board_LED2B
+*/
 /* Analog capable DIO's */
 #define Board_DIO23_ANALOG                  IOID_23
 #define Board_DIO24_ANALOG                  IOID_24
@@ -113,22 +114,24 @@ extern const PIN_Config BoardGpioInitTable[];
  *  ==========================================================================*/
 
 /* Generic GPTimer instance identifiers */
-#define Board_GPTIMER0A             CC2650DK_7ID_GPTIMER0A
-#define Board_GPTIMER0B             CC2650DK_7ID_GPTIMER0B
-#define Board_GPTIMER1A             CC2650DK_7ID_GPTIMER1A
-#define Board_GPTIMER1B             CC2650DK_7ID_GPTIMER1B
-#define Board_GPTIMER2A             CC2650DK_7ID_GPTIMER2A
-#define Board_GPTIMER2B             CC2650DK_7ID_GPTIMER2B
-#define Board_GPTIMER3A             CC2650DK_7ID_GPTIMER3A
-#define Board_GPTIMER3B             CC2650DK_7ID_GPTIMER3B
+#define Board_GPTIMER0A      CC2650DK_7ID_GPTIMER0A
+#define Board_GPTIMER0B      CC2650DK_7ID_GPTIMER0B
+#define Board_GPTIMER1A      CC2650DK_7ID_GPTIMER1A
+//#define Board_GPTIMER1B      CC2650DK_7ID_GPTIMER1B
+//#define Board_GPTIMER2A      CC2650DK_7ID_GPTIMER2A
+//#define Board_GPTIMER2B      CC2650DK_7ID_GPTIMER2B
+//#define Board_GPTIMER3A      CC2650DK_7ID_GPTIMER3A
+//#define Board_GPTIMER3B      CC2650DK_7ID_GPTIMER3B
 
 /* Generic PWM instance identifiers */
-#define Board_PWM0                  CC2650DK_7ID_PWM0
-#define Board_PWM1                  CC2650DK_7ID_PWM1
-#define Board_PWM2                  CC2650DK_7ID_PWM2
-#define Board_PWM3                  CC2650DK_7ID_PWM3
-#define Board_PWM4                  CC2650DK_7ID_PWM4
-#define Board_PWM5                  CC2650DK_7ID_PWM5
+#define Board_PWM1R                  CC2650DK_7ID_PWM0
+#define Board_PWM1G                  CC2650DK_7ID_PWM1
+#define Board_PWM1B                  CC2650DK_7ID_PWM2
+/* //LED2 for GPIO application test   
+//#define Board_PWM2R                  CC2650DK_7ID_PWM3
+//#define Board_PWM2G                  CC2650DK_7ID_PWM4
+//#define Board_PWM2B                  CC2650DK_7ID_PWM5
+*/
 #endif
 
 #define Board_ALS_OUT                       Board_ADC
@@ -178,11 +181,11 @@ typedef enum CC2650DK_7ID_GPTimerName
     CC2650DK_7ID_GPTIMER0A = 0,
     CC2650DK_7ID_GPTIMER0B,
     CC2650DK_7ID_GPTIMER1A,
-    CC2650DK_7ID_GPTIMER1B,
-    CC2650DK_7ID_GPTIMER2A,
-    CC2650DK_7ID_GPTIMER2B,
-    CC2650DK_7ID_GPTIMER3A,
-    CC2650DK_7ID_GPTIMER3B,
+//    CC2650DK_7ID_GPTIMER1B,
+//    CC2650DK_7ID_GPTIMER2A,
+//    CC2650DK_7ID_GPTIMER2B,
+//    CC2650DK_7ID_GPTIMER3A,
+//    CC2650DK_7ID_GPTIMER3B,
     CC2650DK_7ID_GPTIMERPARTSCOUNT
 } CC2650DK_7ID_GPTimerName;
 
@@ -194,8 +197,8 @@ typedef enum CC2650DK_7ID_GPTimers
 {
     CC2650DK_7ID_GPTIMER0 = 0,
     CC2650DK_7ID_GPTIMER1,
-    CC2650DK_7ID_GPTIMER2,
-    CC2650DK_7ID_GPTIMER3,
+//   CC2650DK_7ID_GPTIMER2,
+//   CC2650DK_7ID_GPTIMER3,
     CC2650DK_7ID_GPTIMERCOUNT
 } CC2650DK_7ID_GPTimers;
 
@@ -208,9 +211,9 @@ typedef enum CC2650DK_7ID_PWM
     CC2650DK_7ID_PWM0 = 0,
     CC2650DK_7ID_PWM1,
     CC2650DK_7ID_PWM2,
-    CC2650DK_7ID_PWM3,
-    CC2650DK_7ID_PWM4,
-    CC2650DK_7ID_PWM5,
+//    CC2650DK_7ID_PWM3,
+//    CC2650DK_7ID_PWM4,
+//    CC2650DK_7ID_PWM5,
     CC2650DK_7ID_PWMCOUNT
 } CC2650DK_7ID_PWM;
 

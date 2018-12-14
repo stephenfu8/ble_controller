@@ -70,7 +70,7 @@
 #include "icall_apimsg.h"
 
 #include "util.h"
-#include "board_key.h"
+#include "hw_key.h"
 #include <ti/mw/display/Display.h>
 #include "board.h"
 
@@ -275,10 +275,6 @@ static uint16_t charHdl = 0;
 
 // Value to write
 static uint8_t charVal = 0;
-
-// Value read/write toggle
-static bool doWrite = FALSE;
-
 // GATT read/write procedure state
 static bool procedureInProgress = FALSE;
 
@@ -327,6 +323,7 @@ void SimpleBLECentral_readRssiHandler(UArg a0);
 
 static uint8_t SimpleBLECentral_enqueueMsg(uint8_t event, uint8_t status,
                                            uint8_t *pData);
+static bStatus_t SimpleBLECentral_WriteDataNoRsp(uint8_t *buf, uint16_t len);
 
 #ifdef FPGA_AUTO_CONNECT
 static void SimpleBLECentral_startGapDiscovery(void);
@@ -882,175 +879,35 @@ static void SimpleBLECentral_processRoleEvent(gapCentralRoleEvent_t *pEvent)
  */
 static void SimpleBLECentral_handleKeys(uint8_t shift, uint8_t keys)
 {
-  (void)shift;  // Intentionally unreferenced parameter
-
-  if (keys & KEY_LEFT)
+   (void)shift;  // Intentionally unreferenced parameter
+#ifdef TELE_LOCAL   
+  if (keys & KEY_BTN)        //key function
   {
-    // Display discovery results
-    if (!scanningStarted && scanRes > 0)
-    {
-      // Increment index of current result (with wraparound)
-      scanIdx++;
-      if (scanIdx >= scanRes)
-      {
-        scanIdx = 0;
-      }
-
-      Display_print1(dispHandle, 2, 0, "Device %d", (scanIdx + 1));
-      Display_print0(dispHandle, 3, 0, Util_convertBdAddr2Str(devList[scanIdx].addr));
-    }
-
-    return;
+    SimpleBLECentral_WriteDataNoRsp("W", 1);
   }
-
-  if (keys & KEY_UP)
+#endif 
+#ifdef TELE_REMOTE  
+  if (keys & KEY_BTN1)        //key function
   {
-    // Start or stop discovery
-    if (state != BLE_STATE_CONNECTED)
-    {
-      if (!scanningStarted)
-      {
-        scanningStarted = TRUE;
-        scanRes = 0;
-
-        Display_print0(dispHandle, 2, 0, "Discovering...");
-        Display_clearLines(dispHandle, 3, 4);
-
-        GAPCentralRole_StartDiscovery(DEFAULT_DISCOVERY_MODE,
-                                      DEFAULT_DISCOVERY_ACTIVE_SCAN,
-                                      DEFAULT_DISCOVERY_WHITE_LIST);
-      }
-      else
-      {
-        GAPCentralRole_CancelDiscovery();
-      }
-    }
-    else if (state == BLE_STATE_CONNECTED &&
-             charHdl != 0                 &&
-             procedureInProgress == FALSE)
-    {
-      uint8_t status;
-
-      // Do a read or write as long as no other read or write is in progress
-      if (doWrite)
-      {
-        // Do a write
-        attWriteReq_t req;
-
-        req.pValue = GATT_bm_alloc(connHandle, ATT_WRITE_REQ, 1, NULL);
-        if ( req.pValue != NULL )
-        {
-          req.handle = charHdl;
-          req.len = 1;
-          req.pValue[0] = charVal;
-          req.sig = 0;
-          req.cmd = 0;
-
-          status = GATT_WriteCharValue(connHandle, &req, selfEntity);
-          if ( status != SUCCESS )
-          {
-            GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
-          }
-        }
-        else
-        {
-          status = bleMemAllocError;
-        }
-      }
-      else
-      {
-        // Do a read
-        attReadReq_t req;
-
-        req.handle = charHdl;
-        status = GATT_ReadCharValue(connHandle, &req, selfEntity);
-      }
-
-      if (status == SUCCESS)
-      {
-        procedureInProgress = TRUE;
-        doWrite = !doWrite;
-      }
-    }
-
-    return;
+     if ((state != BLE_STATE_CONNECTED) && (!scanningStarted))
+       SimpleBLECentral_startGapDiscovery();
+    else
+      SimpleBLECentral_WriteDataNoRsp( "A", 1);
+      
   }
-
-  if (keys & KEY_RIGHT)
+  if (keys & KEY_BTN2)        //key function
   {
-    // Connection update
-    if (state == BLE_STATE_CONNECTED)
-    {
-      GAPCentralRole_UpdateLink(connHandle,
-                                DEFAULT_UPDATE_MIN_CONN_INTERVAL,
-                                DEFAULT_UPDATE_MAX_CONN_INTERVAL,
-                                DEFAULT_UPDATE_SLAVE_LATENCY,
-                                DEFAULT_UPDATE_CONN_TIMEOUT);
-    }
-
-    return;
+    SimpleBLECentral_WriteDataNoRsp("B", 1);
   }
-
-  if (keys & KEY_SELECT)
+  if (keys & KEY_BTN3)        //key function
   {
-    uint8_t addrType;
-    uint8_t *peerAddr;
-
-    // Connect or disconnect
-    if (state == BLE_STATE_IDLE)
-    {
-      // if there is a scan result
-      if (scanRes > 0)
-      {
-        // connect to current device in scan result
-        peerAddr = devList[scanIdx].addr;
-        addrType = devList[scanIdx].addrType;
-
-        state = BLE_STATE_CONNECTING;
-
-        GAPCentralRole_EstablishLink(DEFAULT_LINK_HIGH_DUTY_CYCLE,
-                                     DEFAULT_LINK_WHITE_LIST,
-                                     addrType, peerAddr);
-
-        Display_print0(dispHandle, 2, 0, "Connecting");
-        Display_print0(dispHandle, 3, 0, Util_convertBdAddr2Str(peerAddr));
-        Display_clearLine(dispHandle, 4);
-      }
-    }
-    else if (state == BLE_STATE_CONNECTING ||
-              state == BLE_STATE_CONNECTED)
-    {
-      // disconnect
-      state = BLE_STATE_DISCONNECTING;
-
-      GAPCentralRole_TerminateLink(connHandle);
-
-      Display_print0(dispHandle, 2, 0, "Disconnecting");
-      Display_clearLine(dispHandle, 4);
-    }
-
-    return;
+    SimpleBLECentral_WriteDataNoRsp("C", 1);
   }
-
-  if (keys & KEY_DOWN)
+  if (keys & KEY_BTN4)        //key function
   {
-    // Start or cancel RSSI polling
-    if (state == BLE_STATE_CONNECTED)
-    {
-      if (SimpleBLECentral_RssiFind(connHandle) == NULL)
-      {
-        SimpleBLECentral_StartRssi(connHandle, DEFAULT_RSSI_PERIOD);
-      }
-      else
-      {
-        SimpleBLECentral_CancelRssi(connHandle);
-
-        Display_print0(dispHandle, 4, 0, "RSSI Cancelled");
-      }
-    }
-
-    return;
+    SimpleBLECentral_WriteDataNoRsp("D", 1);
   }
+#endif
 }
 
 /*********************************************************************
@@ -1144,9 +1001,9 @@ static void SimpleBLECentral_processCmdCompleteEvt(hciEvt_CmdComplete_t *pMsg)
   {
     case HCI_READ_RSSI:
       {
-        int8 rssi = (int8)pMsg->pReturnParam[3];
+//        int8 rssi = (int8)pMsg->pReturnParam[3];
 
-        Display_print1(dispHandle, 4, 0, "RSSI -dB: %d", (uint32_t)(-rssi));
+//        Display_print1(dispHandle, 4, 0, "RSSI -dB: %d", (uint32_t)(-rssi));
       }
       break;
 
@@ -1739,3 +1596,34 @@ static uint8_t SimpleBLECentral_enqueueMsg(uint8_t event, uint8_t state,
 
 /*********************************************************************
 *********************************************************************/
+
+static bStatus_t SimpleBLECentral_WriteDataNoRsp(uint8_t *buf, uint16_t len)
+{
+  attWriteReq_t req;
+  bStatus_t status;
+
+  req.pValue = GATT_bm_alloc(connHandle, ATT_WRITE_REQ, 1, NULL);
+
+  if ( req.pValue != NULL )
+  {
+    req.handle = charHdl;
+   
+    req.len = len>19 ? 19 : len;
+    memcpy(req.pValue,buf,req.len);
+    
+    req.sig = 0;
+    req.cmd = TRUE;     // here is different with wirtevalue
+ 
+    status = GATT_WriteNoRsp(connHandle, &req);
+    
+    if ( status != SUCCESS )
+    {
+      GATT_bm_free((gattMsg_t *)&req, ATT_WRITE_REQ);
+    }
+  }
+  else
+  {
+    status = bleMemAllocError;
+  }
+  return status;
+}

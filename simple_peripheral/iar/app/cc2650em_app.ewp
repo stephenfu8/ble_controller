@@ -3034,6 +3034,12 @@
       <name>$PROJ_DIR$\..\..\..\target\hw_key.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\..\..\target\hw_pwm.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\target\hw_pwm.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\..\..\src\common\cc26xx\rcosc\rcosc_calibration.c</name>
       <excluded>
         <configuration>FlashROM</configuration>

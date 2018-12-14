@@ -15,8 +15,8 @@ void HwGPIOInit(void);
  * …Ë÷√GPIOµÁ∆Ω
  */
 void HwGPIOSet(uint32_t pin, uint8_t flag);  
-
-
+void HwGPIOStopAll(void);
+void HwGPIOCloseAll(void);
 #ifdef __cplusplus
 }
 #endif

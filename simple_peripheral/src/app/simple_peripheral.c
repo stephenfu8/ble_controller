@@ -49,6 +49,10 @@
  * INCLUDES
  */
 #include <string.h>
+#include <stdlib.h>
+
+#include <ti/drivers/Power.h>
+#include <ti/drivers/power/PowerCC26XX.h>
 
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
@@ -82,7 +86,10 @@
 
 #include <ti/mw/display/Display.h>
 #include "hw_key.h"
-
+#include "hw_gpio.h"
+#include "hw_pwm.h"
+#include "ti/drivers/PWM.h"
+                                      
 #include "board.h"
 
 #include "simple_peripheral.h"
@@ -109,7 +116,7 @@
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic
 // parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     800
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     400//800
 #else //!FEATURE_OAD
 // Minimum connection interval (units of 1.25ms, 8=10ms) if automatic
 // parameter update request is enabled
@@ -121,22 +128,23 @@
 #endif // FEATURE_OAD
 
 // Slave latency to use if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_SLAVE_LATENCY         0
+#define DEFAULT_DESIRED_SLAVE_LATENCY         2//0
 
 // Supervision timeout value (units of 10ms, 1000=10s) if automatic parameter
 // update request is enabled
-#define DEFAULT_DESIRED_CONN_TIMEOUT          1000
+#define DEFAULT_DESIRED_CONN_TIMEOUT          500//1000
 
 // Whether to enable automatic parameter update request when a connection is
 // formed
 #define DEFAULT_ENABLE_UPDATE_REQUEST         GAPROLE_LINK_PARAM_UPDATE_INITIATE_BOTH_PARAMS
 
 // Connection Pause Peripheral time value (in seconds)
-#define DEFAULT_CONN_PAUSE_PERIPHERAL         6
+#define DEFAULT_CONN_PAUSE_PERIPHERAL         3//6
 
 // How often to perform periodic event (in msec)
-#define SBP_PERIODIC_EVT_PERIOD               5000
-
+#define SBP_PERIODIC_EVT_PERIOD               500
+#define SBP_LED1_EVT_PERIOD                  1000
+#define SBP_BREATH_EVT_PERIOD                 100
 #ifdef FEATURE_OAD
 // The size of an OAD packet.
 #define OAD_PACKET_SIZE                       ((OAD_BLOCK_SIZE) + 2)
@@ -147,15 +155,18 @@
 
 
 #ifndef SBP_TASK_STACK_SIZE
-#define SBP_TASK_STACK_SIZE                   644
+#define SBP_TASK_STACK_SIZE                   1024
 #endif
 
 // Internal Events for RTOS application
 #define SBP_STATE_CHANGE_EVT                  0x0001
 #define SBP_CHAR_CHANGE_EVT                   0x0002
-#define SBP_PERIODIC_EVT                      0x0004
+#define SBP_PERIODIC_EVT_LED2                 0x0004
 #define SBP_CONN_EVT_END_EVT                  0x0008
-#define SBC_KEY_CHANGE_EVT                    0x0010
+#define SBP_KEY_CHANGE_EVT                    0x0010
+#define SBP_LED_EVT                           0x0020
+#define SBP_PERIODIC_EVT_LED1                 0x0040   
+#define SBP_PERIODIC_EVT_BREATH               0x0080
 /*********************************************************************
  * TYPEDEFS
  */
@@ -184,8 +195,9 @@ static ICall_EntityID selfEntity;
 static ICall_Semaphore sem;
 
 // Clock instances for internal periodic events.
-static Clock_Struct periodicClock;
-
+static Clock_Struct LED2_periodicClock;
+static Clock_Struct LED1_periodicClock;
+static Clock_Struct Breath_periodicClock;
 // Queue object used for app messages
 static Queue_Struct appMsg;
 static Queue_Handle appMsgQueue;
@@ -210,28 +222,10 @@ Char sbpTaskStack[SBP_TASK_STACK_SIZE];
 static uint8_t scanRspData[] =
 {
   // complete name
-  0x14,   // length of this data
+  0x0F,   // length of this data
   GAP_ADTYPE_LOCAL_NAME_COMPLETE,
-  'S',
-  'i',
-  'm',
-  'p',
-  'l',
-  'e',
-  'B',
-  'L',
-  'E',
-  'P',
-  'e',
-  'r',
-  'i',
-  'p',
-  'h',
-  'e',
-  'r',
-  'a',
-  'l',
-
+  'B',  'L',  'E',   '_',  'C',  'o',  'n',  't',  'r',  'o',  'l', 'l',  'e',  'r',
+  
   // connection interval range
   0x05,   // length of this data
   GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE,
@@ -276,12 +270,17 @@ static uint8_t advertData[] =
 };
 
 // GAP GATT Attributes
-static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "Simple BLE Peripheral";
+static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "BLE Tele Controller";
 
 // Globals used for ATT Response retransmission
 static gattMsgEvent_t *pAttRsp = NULL;
 static uint8_t rspTxRetry = 0;
 
+//呼吸周期5s  呼吸间隔频率4s/100ms/2=20
+// Perform periodic application task
+#define RATIO   20
+#define INTERVAL  ((PWM_DUTY_FRACTION_MAX) / (RATIO+1))
+static uint8_t led_show=0;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -305,8 +304,12 @@ static void SimpleBLEPeripheral_stateChangeCB(gaprole_States_t newState);
 static void SimpleBLEPeripheral_charValueChangeCB(uint8_t paramID);
 #endif //!FEATURE_OAD_ONCHIP
 static void SimpleBLEPeripheral_enqueueMsg(uint8_t event, uint8_t state);
+
 void SimpleBLECentral_keyChangeHandler(uint8 keys);
 static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys);
+
+static void LED_Handler(uint8_t cmd);
+static void LED_Application_Handle(uint8_t cmd);
 
 #ifdef FEATURE_OAD
 void SimpleBLEPeripheral_processOadWriteCB(uint8_t event, uint16_t connHandle,
@@ -396,7 +399,8 @@ static void SimpleBLEPeripheral_init(void)
   // Register the current thread as an ICall dispatcher application
   // so that the application can send and receive messages.
   ICall_registerApp(&selfEntity, &sem);
-
+  srand(2);
+  
 #ifdef USE_RCOSC
   RCOSC_enableCalibration();
 #endif // USE_RCOSC
@@ -423,8 +427,12 @@ static void SimpleBLEPeripheral_init(void)
   appMsgQueue = Util_constructQueue(&appMsg);
 
   // Create one-shot clocks for internal periodic events.
-  Util_constructClock(&periodicClock, SimpleBLEPeripheral_clockHandler,
-                      SBP_PERIODIC_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT);
+  Util_constructClock(&LED1_periodicClock, SimpleBLEPeripheral_clockHandler,
+                      SBP_LED1_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT_LED1);
+  Util_constructClock(&Breath_periodicClock, SimpleBLEPeripheral_clockHandler,
+                      SBP_BREATH_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT_BREATH);
+  Util_constructClock(&LED2_periodicClock, SimpleBLEPeripheral_clockHandler,
+                      SBP_PERIODIC_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT_LED2);
 
   dispHandle = Display_open(Display_Type_LCD, NULL);
   Board_initKeys(SimpleBLECentral_keyChangeHandler);      //key button 
@@ -485,10 +493,11 @@ static void SimpleBLEPeripheral_init(void)
   // Setup the GAP Bond Manager
   {
     uint32_t passkey = 0; // passkey "000000"
-    uint8_t pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
+//    uint8_t pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
+    uint8_t pairMode = GAPBOND_PAIRING_MODE_NO_PAIRING;
     uint8_t mitm = TRUE;
     uint8_t ioCap = GAPBOND_IO_CAP_DISPLAY_ONLY;
-    uint8_t bonding = TRUE;
+    uint8_t bonding = FALSE;
 
     GAPBondMgr_SetParameter(GAPBOND_DEFAULT_PASSCODE, sizeof(uint32_t),
                             &passkey);
@@ -566,6 +575,10 @@ static void SimpleBLEPeripheral_init(void)
 #else
   Display_print0(dispHandle, 0, 0, "BLE Peripheral");
 #endif // FEATURE_OAD
+  
+  
+  HwGPIOInit(); // 初始化GPIO
+  HwPWMInit();  //初始化PWM
 }
 
 /*********************************************************************
@@ -581,7 +594,7 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
 {
   // Initialize application
   SimpleBLEPeripheral_init();
-
+  
   // Application main loop
   for (;;)
   {
@@ -643,16 +656,41 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
       }
     }
 
-    if (events & SBP_PERIODIC_EVT)
-    {
-      events &= ~SBP_PERIODIC_EVT;
 
-      Util_startClock(&periodicClock);
+    if (events & SBP_PERIODIC_EVT_LED1)
+    {
+      static uint8_t rgb=0;
+      events &= ~SBP_PERIODIC_EVT_LED1;
+
+      Util_startClock(&LED1_periodicClock);
+
+      // Perform periodic application task
+      HwRGBControl(rgb++);
+      rgb = rgb == 7 ? 0 : rgb;
+    }
+    if (events & SBP_PERIODIC_EVT_BREATH) //100ms
+    {
+      events &= ~SBP_PERIODIC_EVT_BREATH;
+      Util_startClock(&Breath_periodicClock);
+
+      if ( led_show & 0x02)
+        PWM_Set_Duty(PWM_1R,PWM_DutyValue(RATIO,INTERVAL));
+      else
+      {
+        PWM_Set_Duty(PWM_1R,rand()*2);
+        PWM_Set_Duty(PWM_1G,rand()*2);
+        PWM_Set_Duty(PWM_1B,rand()*2);
+      }
+    }
+    if (events & SBP_PERIODIC_EVT_LED2)
+    {
+      events &= ~SBP_PERIODIC_EVT_LED2;
+
+      Util_startClock(&LED2_periodicClock);
 
       // Perform periodic application task
       SimpleBLEPeripheral_performPeriodicTask();
     }
-
 #ifdef FEATURE_OAD
     while (!Queue_empty(hOadQ))
     {
@@ -870,10 +908,12 @@ static void SimpleBLEPeripheral_processAppMsg(sbpEvt_t *pMsg)
       SimpleBLEPeripheral_processCharValueChangeEvt(pMsg->hdr.state);
       break;
       
-    case SBC_KEY_CHANGE_EVT:
+    case SBP_KEY_CHANGE_EVT:
       SimpleBLEPeripheral_handleKeys(0, pMsg->hdr.state);
       break;
-      
+    case SBP_LED_EVT:
+      LED_Application_Handle(pMsg->hdr.state);
+      break;
     default:
       // Do nothing.
       break;
@@ -977,8 +1017,6 @@ static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState)
         linkDBInfo_t linkInfo;
         uint8_t numActive = 0;
 
-        Util_startClock(&periodicClock);
-
         numActive = linkDB_NumActive();
 
         // Use numActive to determine the connection handle of the last
@@ -1019,6 +1057,8 @@ static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState)
             firstConnFlag = true;
           }
         #endif // PLUS_BROADCASTER
+          Util_startClock(&LED2_periodicClock);
+          led_show |= 0x01;
       }
       break;
 
@@ -1027,7 +1067,6 @@ static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState)
       break;
 
     case GAPROLE_WAITING:
-      Util_stopClock(&periodicClock);
       SimpleBLEPeripheral_freeAttRsp(bleNotConnected);
 
       Display_print0(dispHandle, 2, 0, "Disconnected");
@@ -1099,7 +1138,7 @@ static void SimpleBLEPeripheral_processCharValueChangeEvt(uint8_t paramID)
   {
     case SIMPLEPROFILE_CHAR1:
       SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR1, &newValue);
-
+      LED_Handler(newValue);
       Display_print1(dispHandle, 4, 0, "Char 1: %d", (uint16_t)newValue);
       break;
 
@@ -1131,7 +1170,8 @@ static void SimpleBLEPeripheral_processCharValueChangeEvt(uint8_t paramID)
  */
 static void SimpleBLEPeripheral_performPeriodicTask(void)
 {
-#ifndef FEATURE_OAD_ONCHIP
+//#ifndef FEATURE_OAD_ONCHIP
+#if 0
   uint8_t valueToCopy;
 
   // Call to retrieve the value of the third characteristic in the profile
@@ -1145,6 +1185,28 @@ static void SimpleBLEPeripheral_performPeriodicTask(void)
                                &valueToCopy);
   }
 #endif //!FEATURE_OAD_ONCHIP
+  
+  static int8_t rgb= 'r';
+  switch (rgb)
+  {
+  case 'r':
+    HwGPIOSet(L2B, LED_OFF);
+    HwGPIOSet(L2R, LED_ON);
+    rgb ='g';
+    break;
+  case 'g':
+    HwGPIOSet(L2R, LED_OFF);
+    HwGPIOSet(L2G, LED_ON);
+    rgb ='b';
+    break;
+  case 'b':
+    HwGPIOSet(L2G, LED_OFF);
+    HwGPIOSet(L2B, LED_ON);
+    rgb ='r';
+    break;
+    
+  }
+
 }
 
 
@@ -1244,7 +1306,7 @@ static void SimpleBLEPeripheral_enqueueMsg(uint8_t event, uint8_t state)
  */
 void SimpleBLECentral_keyChangeHandler(uint8 keys)
 {
-  SimpleBLEPeripheral_enqueueMsg(SBC_KEY_CHANGE_EVT, keys);
+  SimpleBLEPeripheral_enqueueMsg(SBP_KEY_CHANGE_EVT, keys);
 }
 static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys)
 {
@@ -1252,10 +1314,16 @@ static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys)
 #ifdef TELE_LOCAL   
   if (keys & KEY_BTN)        //key function
   {
-    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
-                               "A");
-  }
+//    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),"A");
+    
+//    Power_shutdown(PowerCC26XX_ENTERING_SHUTDOWN,0);
+    HwPWMStopAll();
+    HwGPIOCloseAll();
+    Power_shutdown(NULL,NULL);
+ }
 #endif 
+  
+
 #ifdef TELE_REMOTE  
   if (keys & KEY_BTN1)        //key function
   {
@@ -1278,4 +1346,89 @@ static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys)
                                "4");
   }
 #endif
+}
+/*********************************************************************
+ * @fn      LED_Handler
+ *
+ * @brief   Led event to app
+ *
+ * @param   cmd : command to handle
+ *
+ * @return  none
+ */
+static void LED_Handler(uint8_t cmd)
+{
+  SimpleBLEPeripheral_enqueueMsg(SBP_LED_EVT, cmd);
+}
+// LED 控制功能处理函数
+/*********************************************************************
+ * @fn      Led_application_handle
+ *
+ * @brief   Led event handler function
+ *
+ * @param   cmd : command to handle
+ *
+ * @return  none
+ */
+static void LED_Application_Handle(uint8_t cmd)
+{
+  switch (cmd)
+  {
+  case 0xFF: //close all LED   
+    Util_stopClock(&LED2_periodicClock);
+    Util_stopClock(&LED1_periodicClock);
+    Util_stopClock(&Breath_periodicClock);
+    HwPWMStopAll();
+    HwGPIOStopAll();
+    break;
+  case 'A': //LED 2  RGB switch
+    if(led_show & 0x01)
+    {
+      Util_stopClock(&LED2_periodicClock);
+      HwGPIOStopAll();
+      led_show &= ~0x01;
+    }
+    else
+    {
+      Util_startClock(&LED2_periodicClock);
+      led_show |= 0x01;
+    }
+    break;
+  case 'B': //LED 1 pwm test
+    {
+      Util_stopClock(&Breath_periodicClock);
+      HwPWMStopAll();
+      static uint8_t count=0;
+      Util_startClock(&LED1_periodicClock);
+      if(count % 3 == 1)
+        Util_rescheduleClock(&LED1_periodicClock,SBP_LED1_EVT_PERIOD/2);
+      else if (count% 3 == 2)
+        Util_rescheduleClock(&LED1_periodicClock,SBP_LED1_EVT_PERIOD/4);
+      else 
+        Util_rescheduleClock(&LED1_periodicClock,SBP_LED1_EVT_PERIOD);
+      count ++;
+    }
+    break;
+  case 'C':// breathing light
+    Util_stopClock(&LED1_periodicClock);
+    Util_stopClock(&Breath_periodicClock);
+    HwPWMStopAll();
+    PWM_Set_Duty(PWM_1R,0);
+    HwPWMStart(PWM_1R);
+    Util_startClock(&Breath_periodicClock);
+    led_show |= 0x02;
+    break;
+  case 'D':// rand() light
+    Util_stopClock(&LED1_periodicClock);
+    Util_stopClock(&Breath_periodicClock);
+    HwPWMStopAll();
+    HwPWMStart(PWM_1R);
+    HwPWMStart(PWM_1G);
+    HwPWMStart(PWM_1B);
+    Util_startClock(&Breath_periodicClock);
+    led_show &=~0x02;
+    break;
+  default:
+    break;
+  }
 }
