@@ -97,6 +97,7 @@
 #define SBC_RSSI_READ_EVT                     0x0008
 #define SBC_KEY_CHANGE_EVT                    0x0010
 #define SBC_STATE_CHANGE_EVT                  0x0020
+#define SBC_BTN2_PERIOD_EVT                  0x0040
 
 // Maximum number of scan responses
 #define DEFAULT_MAX_SCAN_RES                  8
@@ -158,7 +159,7 @@
 
 // Default service discovery timer delay in ms
 #define DEFAULT_SVC_DISCOVERY_DELAY           1000
-
+#define BTN2_PERIOD_DELAY                     500
 // TRUE to filter discovery results on desired service UUID
 #define DEFAULT_DEV_DISC_BY_SVC_UUID          TRUE
 
@@ -232,7 +233,7 @@ static ICall_Semaphore sem;
 
 // Clock object used to signal timeout
 static Clock_Struct startDiscClock;
-
+static Clock_Struct BTN2Clock;
 // Queue object used for app messages
 static Queue_Struct appMsg;
 static Queue_Handle appMsgQueue;
@@ -283,6 +284,7 @@ static uint16 maxPduSize;
 
 // Array of RSSI read structures
 static readRssi_t readRssi[MAX_NUM_BLE_CONNS];
+static uint8_t btn2_count;
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -323,7 +325,7 @@ void SimpleBLECentral_readRssiHandler(UArg a0);
 
 static uint8_t SimpleBLECentral_enqueueMsg(uint8_t event, uint8_t status,
                                            uint8_t *pData);
-static bStatus_t SimpleBLECentral_WriteDataNoRsp(uint8_t *buf, uint16_t len);
+static bStatus_t SimpleBLECentral_WriteDataNoRsp(uint8_t buf);
 
 #ifdef FPGA_AUTO_CONNECT
 static void SimpleBLECentral_startGapDiscovery(void);
@@ -487,8 +489,9 @@ static void SimpleBLECentral_init(void)
 
   // Setup discovery delay as a one-shot timer
   Util_constructClock(&startDiscClock, SimpleBLECentral_startDiscHandler,
-                      DEFAULT_SVC_DISCOVERY_DELAY, 0, false, 0);
-
+                      DEFAULT_SVC_DISCOVERY_DELAY, 0, false,SBC_START_DISCOVERY_EVT);
+  Util_constructClock(&BTN2Clock, SimpleBLECentral_startDiscHandler,
+                      BTN2_PERIOD_DELAY, BTN2_PERIOD_DELAY, false, SBC_BTN2_PERIOD_EVT);
   Board_initKeys(SimpleBLECentral_keyChangeHandler);
 
   dispHandle = Display_open(Display_Type_LCD, NULL);
@@ -619,6 +622,13 @@ static void SimpleBLECentral_taskFxn(UArg a0, UArg a1)
       events &= ~SBC_START_DISCOVERY_EVT;
 
       SimpleBLECentral_startDiscovery();
+    }
+    
+    if (events & SBC_BTN2_PERIOD_EVT)
+    {
+      events &= ~SBC_BTN2_PERIOD_EVT;
+
+      btn2_count ++;
     }
   }
 }
@@ -879,33 +889,75 @@ static void SimpleBLECentral_processRoleEvent(gapCentralRoleEvent_t *pEvent)
  */
 static void SimpleBLECentral_handleKeys(uint8_t shift, uint8_t keys)
 {
-   (void)shift;  // Intentionally unreferenced parameter
+//   (void)shift;  // Intentionally unreferenced parameter
+  
 #ifdef TELE_LOCAL   
   if (keys & KEY_BTN)        //key function
   {
-    SimpleBLECentral_WriteDataNoRsp("W", 1);
+    SimpleBLECentral_WriteDataNoRsp('W');
   }
 #endif 
 #ifdef TELE_REMOTE  
   if (keys & KEY_BTN1)        //key function
   {
-     if ((state != BLE_STATE_CONNECTED) && (!scanningStarted))
-       SimpleBLECentral_startGapDiscovery();
-    else
-      SimpleBLECentral_WriteDataNoRsp( "A", 1);
-      
+    Power_shutdown(NULL,NULL);
   }
-  if (keys & KEY_BTN2)        //key function
+  if (keys & KEY_BTN2_DOWN)        //key function
   {
-    SimpleBLECentral_WriteDataNoRsp("B", 1);
+    Util_startClock(&BTN2Clock);
+  }
+  if (keys & KEY_BTN2_UP)        //key function
+  {
+    if (btn2_count >=5 ) //500ms *6 
+      SimpleBLECentral_WriteDataNoRsp(0x22);
+    if (btn2_count <2 ) //500ms *6 
+      SimpleBLECentral_WriteDataNoRsp(0x21);
+    Util_stopClock(&BTN2Clock);
+    btn2_count = 0;
   }
   if (keys & KEY_BTN3)        //key function
   {
-    SimpleBLECentral_WriteDataNoRsp("C", 1);
+    static uint8_t btn3_flag =0;
+    shift = 0;
+    switch (btn3_flag)
+    {
+    case 0:
+      shift = 0x31;
+      break;
+    case 1:
+      shift = 0x32;
+      break;
+    case 2:
+      shift = 0x33;
+      break;
+    default:
+      break;
+    }
+    btn3_flag ++;
+    btn3_flag = btn3_flag >2 ? 0:btn3_flag;
+    SimpleBLECentral_WriteDataNoRsp(shift);
   }
   if (keys & KEY_BTN4)        //key function
   {
-    SimpleBLECentral_WriteDataNoRsp("D", 1);
+    static uint8_t btn4_flag =0;
+    shift = 0;
+    switch (btn4_flag)
+    {
+    case 0:
+      shift = 0x41;
+      break;
+    case 1:
+      shift = 0x42;
+      break;
+    case 2:
+      shift = 0x43;
+      break;
+    default:
+      break;
+    }
+    btn4_flag ++;
+    btn4_flag = btn4_flag >2 ? 0:btn4_flag;
+    SimpleBLECentral_WriteDataNoRsp(shift);
   }
 #endif
 }
@@ -1529,7 +1581,7 @@ static void SimpleBLECentral_passcodeCB(uint8_t *deviceAddr, uint16_t connHandle
  */
 void SimpleBLECentral_startDiscHandler(UArg a0)
 {
-  events |= SBC_START_DISCOVERY_EVT;
+  events |= a0;
 
   // Wake up the application thread when it waits for clock event
   Semaphore_post(sem);
@@ -1597,7 +1649,7 @@ static uint8_t SimpleBLECentral_enqueueMsg(uint8_t event, uint8_t state,
 /*********************************************************************
 *********************************************************************/
 
-static bStatus_t SimpleBLECentral_WriteDataNoRsp(uint8_t *buf, uint16_t len)
+static bStatus_t SimpleBLECentral_WriteDataNoRsp(uint8_t buf )
 {
   attWriteReq_t req;
   bStatus_t status;
@@ -1608,9 +1660,8 @@ static bStatus_t SimpleBLECentral_WriteDataNoRsp(uint8_t *buf, uint16_t len)
   {
     req.handle = charHdl;
    
-    req.len = len>19 ? 19 : len;
-    memcpy(req.pValue,buf,req.len);
-    
+    req.len = 1;
+    *req.pValue = buf;
     req.sig = 0;
     req.cmd = TRUE;     // here is different with wirtevalue
  
