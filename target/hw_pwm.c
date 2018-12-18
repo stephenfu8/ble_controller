@@ -325,20 +325,15 @@ uint32_t PWM_DutyValue(uint8_t hz,uint32_t interval)
 {
   static uint8_t count =0;
   static uint32_t value =0;
-  if ( count <= hz )
-  {
-    value += interval;
-    count ++;
-  }
-  else if ( count == hz )
-    count ++;
-  else
-  {
-    value -= interval;
-
-    if(value < interval)
-      count=0;
-  }
+  uint8_t buff;
+  count ++;
+  if (count >(hz+hz))
+    count = 0;
+  if (count <= hz)
+    buff = count;
+  else if (count > hz)
+    buff = hz +hz -count;
+  value = buff *interval;
   return value;
 }
 void PWM_Set_Duty(uint8_t RGBHandle,uint32_t value)

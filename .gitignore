@@ -1,15 +1,3 @@
-multi_role/iar/app/FlashROM
-multi_role/iar/app/FlashROM-CacheAsRAM/*
-multi_role/iar/app/settings
-multi_role/iar/settings
-multi_role/iar/config/configPkg/*
-multi_role/iar/config/src
-multi_role/iar/stack/FlashROM
-multi_role/iar/stack/settings
-multi_role/iar/app/cc2650lp_app.ewt
-multi_role/iar/app/cc2650lp_app.dep
-multi_role/iar/stack/cc2650lp_stack.ewt
-multi_role/iar/stack/cc2650lp_stack.dep
 simple_peripheral/iar/app/FlashROM
 simple_peripheral/iar/app/settings
 simple_peripheral/iar/settings
@@ -34,8 +22,6 @@ simple_central/iar/app/cc2650em_app.ewt
 simple_central/iar/app/cc2650em_app.dep
 simple_central/iar/stack/cc2650em_stack.ewt
 simple_central/iar/stack/cc2650em_stack.dep
-ti-ble
-ti-ble.pub
 *.rar
 *.zip
 *.tar

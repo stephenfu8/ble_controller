@@ -280,7 +280,7 @@ static uint8_t rspTxRetry = 0;
 
 static uint8_t shutdown_count=0;  // shutdown time delay
 static uint8_t btn3_switch =0; // button3 function switch 
-
+#define HZ (22)
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -681,14 +681,14 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
       events &= ~SBP_PERIODIC_EVT_BREATH;
       if ( btn3_switch == 0x31) // single color breath
       {
-        uint32_t interval = PWM_Max_Duty_Fraction /(21);
-        uint32_t value = PWM_DutyValue(20,interval);            // get value 
+        uint32_t interval = PWM_Max_Duty_Fraction / HZ;
+        uint32_t value = PWM_DutyValue(HZ-2,interval);            // get value 
         HwRGBControl( color_index,value);
       }
       else if ( btn3_switch == 0x32) // seven color breath switch
       {
-        uint32_t interval = PWM_Max_Duty_Fraction /(21);        // interval base on current duty fraction
-        uint32_t value = PWM_DutyValue(20,interval);            // get value 
+        uint32_t interval = PWM_Max_Duty_Fraction / HZ;        // interval base on current duty fraction
+        uint32_t value = PWM_DutyValue(HZ-2,interval);            // get value 
         if(value == 0)                     // value < interval indicate  color can switch
           Color_Switch_Index();                  // get new color index
         HwRGBControl(color_index, value);       //set now color pwm duty fraction
