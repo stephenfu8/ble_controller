@@ -100,7 +100,7 @@ PIN_Config keyPinsCfg[] =
 
 PIN_State  keyPins;
 PIN_Handle hKeyPins;
-
+PIN_Id BtnValue;
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
@@ -120,16 +120,16 @@ void Board_initKeys(keysPressedCB_t appKeyCB)
   PIN_registerIntCb(hKeyPins, Board_keyCallback);
   
 #ifdef TELE_LOCAL
-  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY        | PIN_IRQ_NEGEDGE);
+  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY        | PIN_IRQ_BOTHEDGES);
 #ifdef POWER_SAVING
   //Enable wakeup
   PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_KEY | PINCC26XX_WAKEUP_NEGEDGE);
-#endif //POWER_SAVING
+#endif //POWER_SAVING    PIN_IRQ_BOTHEDGES
 #endif
   
 #ifdef TELE_REMOTE
   PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY1        | PIN_IRQ_NEGEDGE);
-  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY2        | PIN_IRQ_NEGEDGE);
+  PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY2        | PIN_IRQ_BOTHEDGES);
   PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY3        | PIN_IRQ_NEGEDGE);
   PIN_setConfig(hKeyPins, PIN_BM_IRQ, Board_KEY4        | PIN_IRQ_NEGEDGE);
 
@@ -137,7 +137,7 @@ void Board_initKeys(keysPressedCB_t appKeyCB)
 #ifdef POWER_SAVING
   //Enable wakeup
   PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_KEY1 | PINCC26XX_WAKEUP_NEGEDGE);
-  PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_KEY2 | PINCC26XX_WAKEUP_NEGEDGE);
+//  PIN_setConfig(hKeyPins, PINCC26XX_BM_WAKEUP, Board_KEY2 | PINCC26XX_WAKEUP_NEGEDGE);
 #endif //POWER_SAVING
 #endif  
   // Setup keycallback for keys
@@ -158,8 +158,9 @@ void Board_initKeys(keysPressedCB_t appKeyCB)
  * @return  none
  */
 static void Board_keyCallback(PIN_Handle hPin, PIN_Id pinId)
-{
+{// here create a timer to handle the key value.
   Util_startClock(&keyChangeClock);
+  BtnValue = pinId;
 }
 
 /*********************************************************************
@@ -177,21 +178,16 @@ static void Board_keyChangeHandler(UArg a0)
   {
     keysPressed = 0;
 #ifdef TELE_LOCAL
-    if ( PIN_getInputValue(Board_KEY) == 0 )
-    {
-      keysPressed |= KEY_BTN;
-    }
+   if (BtnValue == Board_KEY)
+      keysPressed |= PIN_getInputValue(Board_KEY) >0 ?KEY_BTN_UP:KEY_BTN_DOWN;
 #endif    
-#ifdef TELE_REMOTE
+#ifdef TELE_REMOTE   
     if ( PIN_getInputValue(Board_KEY1) == 0 )
     {
       keysPressed |= KEY_BTN1;
     }
-
-    if ( PIN_getInputValue(Board_KEY2) == 0 )
-    {
-      keysPressed |= KEY_BTN2;
-    }
+    if (BtnValue == Board_KEY2)
+      keysPressed |= PIN_getInputValue(Board_KEY2) >0 ?KEY_BTN2_UP:KEY_BTN2_DOWN;
     if ( PIN_getInputValue(Board_KEY3) == 0 )
     {
       keysPressed |= KEY_BTN3;

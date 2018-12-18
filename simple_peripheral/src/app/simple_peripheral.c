@@ -53,6 +53,7 @@
 
 #include <ti/drivers/Power.h>
 #include <ti/drivers/power/PowerCC26XX.h>
+#include <ti/drivers/pin/PINCC26XX.h>
 
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
@@ -142,8 +143,8 @@
 #define DEFAULT_CONN_PAUSE_PERIPHERAL         3//6
 
 // How often to perform periodic event (in msec)
-#define SBP_PERIODIC_EVT_PERIOD               500
-#define SBP_LED1_EVT_PERIOD                  1000
+#define SBP_SHUTDOWN_TIME_EVT_PERIOD          500 //长按键(1000*3)ms后关机
+#define SBP_LEDSIGLESW_EVT_PERIOD             1000
 #define SBP_BREATH_EVT_PERIOD                 100
 #ifdef FEATURE_OAD
 // The size of an OAD packet.
@@ -161,11 +162,11 @@
 // Internal Events for RTOS application
 #define SBP_STATE_CHANGE_EVT                  0x0001
 #define SBP_CHAR_CHANGE_EVT                   0x0002
-#define SBP_PERIODIC_EVT_LED2                 0x0004
+#define SBP_LED_SINGLE_COLOR_EVT               0x0004
 #define SBP_CONN_EVT_END_EVT                  0x0008
 #define SBP_KEY_CHANGE_EVT                    0x0010
 #define SBP_LED_EVT                           0x0020
-#define SBP_PERIODIC_EVT_LED1                 0x0040   
+#define SBP_SHUTDOWN_EVT                      0x0040   
 #define SBP_PERIODIC_EVT_BREATH               0x0080
 /*********************************************************************
  * TYPEDEFS
@@ -195,8 +196,8 @@ static ICall_EntityID selfEntity;
 static ICall_Semaphore sem;
 
 // Clock instances for internal periodic events.
-static Clock_Struct LED2_periodicClock;
-static Clock_Struct LED1_periodicClock;
+static Clock_Struct Shutdown_periodicClock;
+static Clock_Struct LED_Sigle_Color_Sw_Clock;
 static Clock_Struct Breath_periodicClock;
 // Queue object used for app messages
 static Queue_Struct appMsg;
@@ -276,11 +277,10 @@ static uint8_t attDeviceName[GAP_DEVICE_NAME_LEN] = "BLE Tele Controller";
 static gattMsgEvent_t *pAttRsp = NULL;
 static uint8_t rspTxRetry = 0;
 
-//呼吸周期5s  呼吸间隔频率4s/100ms/2=20
-// Perform periodic application task
-#define RATIO   20
-#define INTERVAL  ((PWM_DUTY_FRACTION_MAX) / (RATIO+1))
-static uint8_t led_show=0;
+
+static uint8_t shutdown_count=0;  // shutdown time delay
+static uint8_t btn3_switch =0; // button3 function switch 
+
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -293,7 +293,6 @@ static uint8_t SimpleBLEPeripheral_processGATTMsg(gattMsgEvent_t *pMsg);
 static void SimpleBLEPeripheral_processAppMsg(sbpEvt_t *pMsg);
 static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState);
 static void SimpleBLEPeripheral_processCharValueChangeEvt(uint8_t paramID);
-static void SimpleBLEPeripheral_performPeriodicTask(void);
 static void SimpleBLEPeripheral_clockHandler(UArg arg);
 
 static void SimpleBLEPeripheral_sendAttRsp(void);
@@ -427,12 +426,14 @@ static void SimpleBLEPeripheral_init(void)
   appMsgQueue = Util_constructQueue(&appMsg);
 
   // Create one-shot clocks for internal periodic events.
-  Util_constructClock(&LED1_periodicClock, SimpleBLEPeripheral_clockHandler,
-                      SBP_LED1_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT_LED1);
+  Util_constructClock(&Shutdown_periodicClock, SimpleBLEPeripheral_clockHandler,
+                      SBP_SHUTDOWN_TIME_EVT_PERIOD, SBP_SHUTDOWN_TIME_EVT_PERIOD, false, SBP_SHUTDOWN_EVT);
+  
+  Util_constructClock(&LED_Sigle_Color_Sw_Clock, SimpleBLEPeripheral_clockHandler,
+                      SBP_LEDSIGLESW_EVT_PERIOD, SBP_LEDSIGLESW_EVT_PERIOD, false, SBP_LED_SINGLE_COLOR_EVT);
+  
   Util_constructClock(&Breath_periodicClock, SimpleBLEPeripheral_clockHandler,
-                      SBP_BREATH_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT_BREATH);
-  Util_constructClock(&LED2_periodicClock, SimpleBLEPeripheral_clockHandler,
-                      SBP_PERIODIC_EVT_PERIOD, 0, false, SBP_PERIODIC_EVT_LED2);
+                      SBP_BREATH_EVT_PERIOD, SBP_BREATH_EVT_PERIOD, false, SBP_PERIODIC_EVT_BREATH);
 
   dispHandle = Display_open(Display_Type_LCD, NULL);
   Board_initKeys(SimpleBLECentral_keyChangeHandler);      //key button 
@@ -577,8 +578,8 @@ static void SimpleBLEPeripheral_init(void)
 #endif // FEATURE_OAD
   
   
-  HwGPIOInit(); // 初始化GPIO
-  HwPWMInit();  //初始化PWM
+//  HwGPIOInit(); // 初始化GPIO
+
 }
 
 /*********************************************************************
@@ -592,9 +593,11 @@ static void SimpleBLEPeripheral_init(void)
  */
 static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
 {
+  HwPWMInit();  //初始化PWM
+  HwPWMStart(PWM_1R);
   // Initialize application
   SimpleBLEPeripheral_init();
-  
+  HwPWMStop(PWM_1R);
   // Application main loop
   for (;;)
   {
@@ -657,40 +660,44 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
     }
 
 
-    if (events & SBP_PERIODIC_EVT_LED1)
+    if (events & SBP_SHUTDOWN_EVT) //500ms
     {
-      static uint8_t rgb=0;
-      events &= ~SBP_PERIODIC_EVT_LED1;
-
-      Util_startClock(&LED1_periodicClock);
-
-      // Perform periodic application task
-      HwRGBControl(rgb++);
-      rgb = rgb == 7 ? 0 : rgb;
+      events &= ~SBP_SHUTDOWN_EVT;
+      shutdown_count++;
+      if(shutdown_count == 5)
+        HwPWMStart(PWM_1B);
+    }
+    if (events & SBP_LED_SINGLE_COLOR_EVT)
+    {
+      events &= ~SBP_LED_SINGLE_COLOR_EVT;
+      uint8_t color = Color_Switch_Index();
+      HwRGBControl(color,PWM_Max_Duty_Fraction);
+      HwRGBSwitch( color );     // switch the color
+      
     }
     if (events & SBP_PERIODIC_EVT_BREATH) //100ms
     {
+      //呼吸周期4s  呼吸间隔频率4s/100ms/2=20
       events &= ~SBP_PERIODIC_EVT_BREATH;
-      Util_startClock(&Breath_periodicClock);
-
-      if ( led_show & 0x02)
-        PWM_Set_Duty(PWM_1R,PWM_DutyValue(RATIO,INTERVAL));
-      else
+      if ( btn3_switch == 0x31) // single color breath
       {
-        PWM_Set_Duty(PWM_1R,rand()*2);
-        PWM_Set_Duty(PWM_1G,rand()*2);
-        PWM_Set_Duty(PWM_1B,rand()*2);
+        uint32_t interval = PWM_Max_Duty_Fraction /(21);
+        uint32_t value = PWM_DutyValue(20,interval);            // get value 
+        HwRGBControl( color_index,value);
       }
+      else if ( btn3_switch == 0x32) // seven color breath switch
+      {
+        uint32_t interval = PWM_Max_Duty_Fraction /(21);        // interval base on current duty fraction
+        uint32_t value = PWM_DutyValue(20,interval);            // get value 
+        if(value == 0)                     // value < interval indicate  color can switch
+          Color_Switch_Index();                  // get new color index
+        HwRGBControl(color_index, value);       //set now color pwm duty fraction
+        HwRGBSwitch(color_index);               // start new color output
+      }
+      else if (btn3_switch == 0x33)             // music pwm 
+        ;
     }
-    if (events & SBP_PERIODIC_EVT_LED2)
-    {
-      events &= ~SBP_PERIODIC_EVT_LED2;
 
-      Util_startClock(&LED2_periodicClock);
-
-      // Perform periodic application task
-      SimpleBLEPeripheral_performPeriodicTask();
-    }
 #ifdef FEATURE_OAD
     while (!Queue_empty(hOadQ))
     {
@@ -1016,7 +1023,7 @@ static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState)
       {
         linkDBInfo_t linkInfo;
         uint8_t numActive = 0;
-
+        
         numActive = linkDB_NumActive();
 
         // Use numActive to determine the connection handle of the last
@@ -1057,8 +1064,9 @@ static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState)
             firstConnFlag = true;
           }
         #endif // PLUS_BROADCASTER
-          Util_startClock(&LED2_periodicClock);
-          led_show |= 0x01;
+        //start all the LEDs
+        HwPWMStartAll();
+
       }
       break;
 
@@ -1154,61 +1162,6 @@ static void SimpleBLEPeripheral_processCharValueChangeEvt(uint8_t paramID)
   }
 #endif //!FEATURE_OAD_ONCHIP
 }
-
-/*********************************************************************
- * @fn      SimpleBLEPeripheral_performPeriodicTask
- *
- * @brief   Perform a periodic application task. This function gets called
- *          every five seconds (SBP_PERIODIC_EVT_PERIOD). In this example,
- *          the value of the third characteristic in the SimpleGATTProfile
- *          service is retrieved from the profile, and then copied into the
- *          value of the the fourth characteristic.
- *
- * @param   None.
- *
- * @return  None.
- */
-static void SimpleBLEPeripheral_performPeriodicTask(void)
-{
-//#ifndef FEATURE_OAD_ONCHIP
-#if 0
-  uint8_t valueToCopy;
-
-  // Call to retrieve the value of the third characteristic in the profile
-  if (SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &valueToCopy) == SUCCESS)
-  {
-    // Call to set that value of the fourth characteristic in the profile.
-    // Note that if notifications of the fourth characteristic have been
-    // enabled by a GATT client device, then a notification will be sent
-    // every time this function is called.
-    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
-                               &valueToCopy);
-  }
-#endif //!FEATURE_OAD_ONCHIP
-  
-  static int8_t rgb= 'r';
-  switch (rgb)
-  {
-  case 'r':
-    HwGPIOSet(L2B, LED_OFF);
-    HwGPIOSet(L2R, LED_ON);
-    rgb ='g';
-    break;
-  case 'g':
-    HwGPIOSet(L2R, LED_OFF);
-    HwGPIOSet(L2G, LED_ON);
-    rgb ='b';
-    break;
-  case 'b':
-    HwGPIOSet(L2G, LED_OFF);
-    HwGPIOSet(L2B, LED_ON);
-    rgb ='r';
-    break;
-    
-  }
-
-}
-
 
 #ifdef FEATURE_OAD
 /*********************************************************************
@@ -1312,39 +1265,35 @@ static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys)
 {
    (void)shift;  // Intentionally unreferenced parameter
 #ifdef TELE_LOCAL   
-  if (keys & KEY_BTN)        //key function
+  if (keys & KEY_BTN_DOWN)        //key function
   {
-//    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),"A");
-    
-//    Power_shutdown(PowerCC26XX_ENTERING_SHUTDOWN,0);
-    HwPWMStopAll();
-    HwGPIOCloseAll();
-    Power_shutdown(NULL,NULL);
- }
+    Util_startClock(&Shutdown_periodicClock);
+  }
+  if (keys & KEY_BTN_UP)        //key function 
+  {
+    Util_stopClock(&Shutdown_periodicClock);
+    if (shutdown_count >= 5) // timer is 500ms   total delay 500s*5 2500ms shutdown
+    {
+      HwPWMStopAll();
+      Util_stopClock(&LED_Sigle_Color_Sw_Clock);
+      Power_shutdown(NULL,NULL);
+    }
+    if (shutdown_count <=1)             // open or close adv
+      ;
+    shutdown_count = 0;
+  }
 #endif 
   
 
 #ifdef TELE_REMOTE  
   if (keys & KEY_BTN1)        //key function
-  {
-        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
-                               "1");
-  }
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),"1");
   if (keys & KEY_BTN2)        //key function
-  {
-        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
-                               "2");
-  }
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),"2");
   if (keys & KEY_BTN3)        //key function
-  {
-        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
-                               "3");
-  }
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),"3");
   if (keys & KEY_BTN4)        //key function
-  {
-        SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
-                               "4");
-  }
+    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),"4");
 #endif
 }
 /*********************************************************************
@@ -1375,59 +1324,50 @@ static void LED_Application_Handle(uint8_t cmd)
   switch (cmd)
   {
   case 0xFF: //close all LED   
-    Util_stopClock(&LED2_periodicClock);
-    Util_stopClock(&LED1_periodicClock);
+    Util_stopClock(&LED_Sigle_Color_Sw_Clock);
     Util_stopClock(&Breath_periodicClock);
     HwPWMStopAll();
-    HwGPIOStopAll();
+
     break;
-  case 'A': //LED 2  RGB switch
-    if(led_show & 0x01)
-    {
-      Util_stopClock(&LED2_periodicClock);
-      HwGPIOStopAll();
-      led_show &= ~0x01;
-    }
-    else
-    {
-      Util_startClock(&LED2_periodicClock);
-      led_show |= 0x01;
-    }
-    break;
-  case 'B': //LED 1 pwm test
+  case 0x21: // sigle color switch
+  case 0x22: //seven color switch
     {
       Util_stopClock(&Breath_periodicClock);
-      HwPWMStopAll();
-      static uint8_t count=0;
-      Util_startClock(&LED1_periodicClock);
-      if(count % 3 == 1)
-        Util_rescheduleClock(&LED1_periodicClock,SBP_LED1_EVT_PERIOD/2);
-      else if (count% 3 == 2)
-        Util_rescheduleClock(&LED1_periodicClock,SBP_LED1_EVT_PERIOD/4);
-      else 
-        Util_rescheduleClock(&LED1_periodicClock,SBP_LED1_EVT_PERIOD);
-      count ++;
+      Util_stopClock(&LED_Sigle_Color_Sw_Clock);
+      uint8_t color = Color_Switch_Index();           //get color index
+      HwRGBControl(color,PWM_Max_Duty_Fraction);        //set the color duty fraction
+      HwRGBSwitch(color);                               //start pwm out
+      if (cmd == 0x22)
+        Util_startClock(&LED_Sigle_Color_Sw_Clock);       //star the switch timer
     }
     break;
-  case 'C':// breathing light
-    Util_stopClock(&LED1_periodicClock);
-    Util_stopClock(&Breath_periodicClock);
-    HwPWMStopAll();
-    PWM_Set_Duty(PWM_1R,0);
-    HwPWMStart(PWM_1R);
-    Util_startClock(&Breath_periodicClock);
-    led_show |= 0x02;
+  case 0x31:   //sigle breath LED light
+  case 0x32:    //seven breath LED light
+     {
+      Util_stopClock(&LED_Sigle_Color_Sw_Clock);
+      if ( Util_isActive(&Breath_periodicClock) == FALSE)
+      {
+        uint8_t color = Color_Switch_Index();     //get color index
+        HwRGBControl(color,0);                    //set the color duty fraction from 0
+        HwRGBSwitch(color);                       //start pwm out
+        Util_startClock(&Breath_periodicClock);
+      }
+      btn3_switch = cmd;
+    }
     break;
-  case 'D':// rand() light
-    Util_stopClock(&LED1_periodicClock);
-    Util_stopClock(&Breath_periodicClock);
-    HwPWMStopAll();
-    HwPWMStart(PWM_1R);
-    HwPWMStart(PWM_1G);
-    HwPWMStart(PWM_1B);
-    Util_startClock(&Breath_periodicClock);
-    led_show &=~0x02;
+  case 0x33:
+ 
+    break;  
+  case 0x41:
+    PWM_Max_Duty_Fraction = PWM_DUTY_FRACTION_LOW;
+    break; 
+  case 0x42:
+    PWM_Max_Duty_Fraction = PWM_DUTY_FRACTION_MID;
     break;
+  case 0x43:
+    PWM_Max_Duty_Fraction = PWM_DUTY_FRACTION_MAX;
+    break;
+
   default:
     break;
   }

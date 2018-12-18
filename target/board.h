@@ -40,21 +40,9 @@ extern "C" {
 #include <ti/drivers/Power.h>
   
 #ifdef CC2640_4XS
+
 #include "cc2640_telectrl.h"
-#define L1R     Board_LED1R
-#define L1G     Board_LED1G
-#define L1B     Board_LED1B
-#define L2R     Board_LED2R
-#define L2G     Board_LED2G
-#define L2B     Board_LED2B
-  
-  
-#define Board_PWMR     Board_PWM1R
-#define Board_PWMG     Board_PWM1G
-#define Board_PWMB     Board_PWM1B
-  
-#define LED_ON          1              
-#define LED_OFF         0
+
 #endif
 
   

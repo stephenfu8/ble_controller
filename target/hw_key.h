@@ -63,13 +63,20 @@ extern "C" {
 /*********************************************************************
  * CONSTANTS
  */
-#define KEY_BTN               0x0010 
+#ifdef TELE_LOCAL
+#define KEY_BTN_DOWN          0x0001 
+#define KEY_BTN_UP            0x0002 
+#endif 
+
+#ifdef TELE_REMOTE  
 #define KEY_BTN1              0x0001
-#define KEY_BTN2              0x0002
+#define KEY_BTN2_DOWN         0x0002
 #define KEY_BTN3              0x0004
 #define KEY_BTN4              0x0008
+#define KEY_BTN2_UP           0x0020  
  
-
+#endif 
+  
 // Debounce timeout in milliseconds
 #define KEY_DEBOUNCE_TIMEOUT  100
 

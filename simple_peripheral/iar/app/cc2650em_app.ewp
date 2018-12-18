@@ -3022,12 +3022,6 @@
   <group>
     <name>Application</name>
     <file>
-      <name>$PROJ_DIR$\..\..\..\target\hw_gpio.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\..\target\hw_gpio.h</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\..\..\target\hw_key.c</name>
     </file>
     <file>

@@ -74,7 +74,7 @@
 
 const PIN_Config BoardGpioInitTable[] = {
 
-#ifdef TELE_LOCAL_1
+#ifdef TELE_LOCAL_NO
     Board_LED1R    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW   | PIN_PUSHPULL | PIN_DRVSTR_MAX,     /* LED initially off               */
     Board_LED1G    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW   | PIN_PUSHPULL | PIN_DRVSTR_MAX,     /* LED initially off               */
     Board_LED1B    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW   | PIN_PUSHPULL | PIN_DRVSTR_MAX,     /* LED initially off               */
@@ -83,7 +83,7 @@ const PIN_Config BoardGpioInitTable[] = {
     Board_LED2B    | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW   | PIN_PUSHPULL | PIN_DRVSTR_MAX,     /* LED initially off               */
     Board_KEY      | PIN_INPUT_EN  | PIN_PULLUP | PIN_HYSTERESIS,                             /* Button is active low            */
 #endif
-#ifdef TELE_REMOTE    
+#ifdef TELE_REMOTE_NO  
     Board_KEY1     | PIN_INPUT_EN  | PIN_PULLUP | PIN_HYSTERESIS,                             /* Button is active low            */
     Board_KEY2     | PIN_INPUT_EN  | PIN_PULLUP | PIN_HYSTERESIS,                             /* Button is active low            */
     Board_KEY3     | PIN_INPUT_EN  | PIN_PULLUP | PIN_HYSTERESIS,                             /* Button is active low            */
@@ -194,10 +194,10 @@ const GPTimerCC26XX_HWAttrs gptimerCC26xxHWAttrs[CC2650DK_7ID_GPTIMERPARTSCOUNT]
     { .baseAddr = GPT0_BASE, .intNum = INT_GPT0A, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT0, .pinMux = GPT_PIN_0A, },
     { .baseAddr = GPT0_BASE, .intNum = INT_GPT0B, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT0, .pinMux = GPT_PIN_0B, },
     { .baseAddr = GPT1_BASE, .intNum = INT_GPT1A, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT1, .pinMux = GPT_PIN_1A, },
-//    { .baseAddr = GPT1_BASE, .intNum = INT_GPT1B, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT1, .pinMux = GPT_PIN_1B, },
-//    { .baseAddr = GPT2_BASE, .intNum = INT_GPT2A, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT2, .pinMux = GPT_PIN_2A, },
-//    { .baseAddr = GPT2_BASE, .intNum = INT_GPT2B, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT2, .pinMux = GPT_PIN_2B, },
-//    { .baseAddr = GPT3_BASE, .intNum = INT_GPT3A, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT3, .pinMux = GPT_PIN_3A, },
+    { .baseAddr = GPT1_BASE, .intNum = INT_GPT1B, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT1, .pinMux = GPT_PIN_1B, },
+    { .baseAddr = GPT2_BASE, .intNum = INT_GPT2A, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT2, .pinMux = GPT_PIN_2A, },
+    { .baseAddr = GPT2_BASE, .intNum = INT_GPT2B, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT2, .pinMux = GPT_PIN_2B, },
+    { .baseAddr = GPT3_BASE, .intNum = INT_GPT3A, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT3, .pinMux = GPT_PIN_3A, },
 //    { .baseAddr = GPT3_BASE, .intNum = INT_GPT3B, .intPriority = (~0), .powerMngrId = PowerCC26XX_PERIPH_GPT3, .pinMux = GPT_PIN_3B, },
 };
 
@@ -209,10 +209,10 @@ const GPTimerCC26XX_Config GPTimerCC26XX_config[CC2650DK_7ID_GPTIMERPARTSCOUNT] 
     { &gptimerCC26XXObjects[0], &gptimerCC26xxHWAttrs[0], GPT_A },
     { &gptimerCC26XXObjects[0], &gptimerCC26xxHWAttrs[1], GPT_B },
     { &gptimerCC26XXObjects[1], &gptimerCC26xxHWAttrs[2], GPT_A },
-//    { &gptimerCC26XXObjects[1], &gptimerCC26xxHWAttrs[3], GPT_B },
-//    { &gptimerCC26XXObjects[2], &gptimerCC26xxHWAttrs[4], GPT_A },
-//    { &gptimerCC26XXObjects[2], &gptimerCC26xxHWAttrs[5], GPT_B },
-//    { &gptimerCC26XXObjects[3], &gptimerCC26xxHWAttrs[6], GPT_A },
+    { &gptimerCC26XXObjects[1], &gptimerCC26xxHWAttrs[3], GPT_B },
+    { &gptimerCC26XXObjects[2], &gptimerCC26xxHWAttrs[4], GPT_A },
+    { &gptimerCC26XXObjects[2], &gptimerCC26xxHWAttrs[5], GPT_B },
+    { &gptimerCC26XXObjects[3], &gptimerCC26xxHWAttrs[6], GPT_A },
 //    { &gptimerCC26XXObjects[3], &gptimerCC26xxHWAttrs[7], GPT_B },
 };
 
@@ -237,9 +237,9 @@ PWMTimerCC26XX_HwAttrs pwmtimerCC26xxHWAttrs[CC2650DK_7ID_PWMCOUNT] = {
     { .pwmPin = Board_PWMPIN0, .gpTimerUnit = Board_GPTIMER0A },
     { .pwmPin = Board_PWMPIN1, .gpTimerUnit = Board_GPTIMER0B },
     { .pwmPin = Board_PWMPIN2, .gpTimerUnit = Board_GPTIMER1A },
-//    { .pwmPin = Board_PWMPIN3, .gpTimerUnit = Board_GPTIMER1B },
-//    { .pwmPin = Board_PWMPIN4, .gpTimerUnit = Board_GPTIMER2A },
-//    { .pwmPin = Board_PWMPIN5, .gpTimerUnit = Board_GPTIMER2B },
+    { .pwmPin = Board_PWMPIN3, .gpTimerUnit = Board_GPTIMER1B },
+    { .pwmPin = Board_PWMPIN4, .gpTimerUnit = Board_GPTIMER2A },
+    { .pwmPin = Board_PWMPIN5, .gpTimerUnit = Board_GPTIMER2B },
 };
 
 /* PWM object, one per PWM output */
@@ -252,10 +252,9 @@ const PWM_Config PWM_config[CC2650DK_7ID_PWMCOUNT + 1] = {
     { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[0], &pwmtimerCC26xxHWAttrs[0] },
     { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[1], &pwmtimerCC26xxHWAttrs[1] },
     { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[2], &pwmtimerCC26xxHWAttrs[2] },
-//   { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[3], &pwmtimerCC26xxHWAttrs[3] },
-//    { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[4], &pwmtimerCC26xxHWAttrs[4] },
-//    { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[5], &pwmtimerCC26xxHWAttrs[5] },
-
+    { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[3], &pwmtimerCC26xxHWAttrs[3] },
+    { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[4], &pwmtimerCC26xxHWAttrs[4] },
+    { &PWMTimerCC26XX_fxnTable, &pwmtimerCC26xxObjects[5], &pwmtimerCC26xxHWAttrs[5] },
     { NULL,                NULL,                 NULL                 }
 };
 

@@ -97,13 +97,14 @@
 #define SBC_RSSI_READ_EVT                     0x0008
 #define SBC_KEY_CHANGE_EVT                    0x0010
 #define SBC_STATE_CHANGE_EVT                  0x0020
-#define SBC_BTN2_PERIOD_EVT                  0x0040
+#define SBC_BTN2_PERIOD_EVT                   0x0040
+#define SBC_SCAN_PERIOD_EVT                   0x0080
 
 // Maximum number of scan responses
 #define DEFAULT_MAX_SCAN_RES                  8
 
 // Scan duration in ms
-#define DEFAULT_SCAN_DURATION                 4000
+#define DEFAULT_SCAN_DURATION                 3000
 
 // Discovery mode (limited, general, all)
 #define DEFAULT_DISCOVERY_MODE                DEVDISC_MODE_ALL
@@ -160,6 +161,7 @@
 // Default service discovery timer delay in ms
 #define DEFAULT_SVC_DISCOVERY_DELAY           1000
 #define BTN2_PERIOD_DELAY                     500
+#define SCAN_PERIOD_DELAY                     5000
 // TRUE to filter discovery results on desired service UUID
 #define DEFAULT_DEV_DISC_BY_SVC_UUID          TRUE
 
@@ -234,6 +236,8 @@ static ICall_Semaphore sem;
 // Clock object used to signal timeout
 static Clock_Struct startDiscClock;
 static Clock_Struct BTN2Clock;
+static Clock_Struct ScanClock;
+
 // Queue object used for app messages
 static Queue_Struct appMsg;
 static Queue_Handle appMsgQueue;
@@ -274,11 +278,9 @@ static uint16_t svcEndHdl = 0;
 // Discovered characteristic handle
 static uint16_t charHdl = 0;
 
-// Value to write
-static uint8_t charVal = 0;
 // GATT read/write procedure state
 static bool procedureInProgress = FALSE;
-
+static bool ScanOK = FALSE;
 // Maximum PDU size (default = 27 octets)
 static uint16 maxPduSize;
 
@@ -408,7 +410,7 @@ static void SimpleBLECentral_connectToFirstDevice(void)
     addrType = devList[scanIdx].addrType;
 
     state = BLE_STATE_CONNECTING;
-
+    ScanOK = FALSE;
     GAPCentralRole_EstablishLink(DEFAULT_LINK_HIGH_DUTY_CYCLE,
                                  DEFAULT_LINK_WHITE_LIST,
                                  addrType, peerAddr);
@@ -492,6 +494,10 @@ static void SimpleBLECentral_init(void)
                       DEFAULT_SVC_DISCOVERY_DELAY, 0, false,SBC_START_DISCOVERY_EVT);
   Util_constructClock(&BTN2Clock, SimpleBLECentral_startDiscHandler,
                       BTN2_PERIOD_DELAY, BTN2_PERIOD_DELAY, false, SBC_BTN2_PERIOD_EVT);
+  
+  Util_constructClock(&ScanClock, SimpleBLECentral_startDiscHandler,
+                      SCAN_PERIOD_DELAY, SCAN_PERIOD_DELAY, false, SBC_SCAN_PERIOD_EVT);  
+  
   Board_initKeys(SimpleBLECentral_keyChangeHandler);
 
   dispHandle = Display_open(Display_Type_LCD, NULL);
@@ -630,6 +636,17 @@ static void SimpleBLECentral_taskFxn(UArg a0, UArg a1)
 
       btn2_count ++;
     }
+    
+    if (events & SBC_SCAN_PERIOD_EVT)
+    {
+      events &= ~SBC_SCAN_PERIOD_EVT;
+
+      if(ScanOK == TRUE)
+      {
+        SimpleBLECentral_startGapDiscovery();
+      }
+        
+    }
   }
 }
 
@@ -767,7 +784,9 @@ static void SimpleBLECentral_processRoleEvent(gapCentralRoleEvent_t *pEvent)
 
 #ifdef FPGA_AUTO_CONNECT
         SimpleBLECentral_startGapDiscovery();
+        
 #endif // FPGA_AUTO_CONNECT
+        Util_startClock(&ScanClock);
       }
       break;
 
@@ -840,7 +859,7 @@ static void SimpleBLECentral_processRoleEvent(gapCentralRoleEvent_t *pEvent)
           state = BLE_STATE_IDLE;
           connHandle = GAP_CONNHANDLE_INIT;
           discState = BLE_DISC_STATE_IDLE;
-
+          ScanOK = TRUE;
           Display_print0(dispHandle, 2, 0, "Connect Failed");
           Display_print1(dispHandle, 3, 0, "Reason: %d", pEvent->gap.hdr.status);
         }
@@ -854,7 +873,7 @@ static void SimpleBLECentral_processRoleEvent(gapCentralRoleEvent_t *pEvent)
         discState = BLE_DISC_STATE_IDLE;
         charHdl = 0;
         procedureInProgress = FALSE;
-
+        ScanOK = TRUE;
         // Cancel RSSI reads
         SimpleBLECentral_CancelRssi(pEvent->linkTerminate.connectionHandle);
 
