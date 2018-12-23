@@ -3022,6 +3022,9 @@
   <group>
     <name>Application</name>
     <file>
+      <name>$PROJ_DIR$\..\..\..\target\hw_adc.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\target\hw_key.c</name>
     </file>
     <file>

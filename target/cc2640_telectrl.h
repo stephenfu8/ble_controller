@@ -104,9 +104,6 @@ extern const PIN_Config BoardGpioInitTable[];
 #define Board_PWMPIN4         Board_LED2G
 #define Board_PWMPIN5         Board_LED2B
 
-/* Analog capable DIO's */
-#define Board_DIO23_ANALOG    Board_ADC
-
 /** ============================================================================
  *  Instance identifiers
  *  ==========================================================================*/
@@ -129,9 +126,9 @@ extern const PIN_Config BoardGpioInitTable[];
 #define Board_PWM2G                  CC2650DK_7ID_PWM4
 #define Board_PWM2B                  CC2650DK_7ID_PWM5
 
+#define Board_ADC_IN                 CC2650DK_7ID_ADC0
 #endif
 
-#define Board_ALS_OUT               Board_ADC
    
 /* Generic TRNG instance identiifer */
 #define Board_TRNG                  CC2650DK_7ID_TRNG0
@@ -219,10 +216,10 @@ typedef enum CC2650DK_7ID_ADCBufName {
  *  @brief  Enum of ADCs
  */
 typedef enum CC2650DK_7ID_ADCName {
-    CC2650DK_7ID_ADCALS = 0,
-    CC2650DK_7ID_ADCDCOUPL,
-    CC2650DK_7ID_ADCVSS,
-    CC2650DK_7ID_ADCVDDS,
+    CC2650DK_7ID_ADC0 = 0,
+//    CC2650DK_7ID_ADCDCOUPL,
+//    CC2650DK_7ID_ADCVSS,
+//    CC2650DK_7ID_ADCVDDS,
     CC2650DK_7ID_ADCCOUNT
 } CC2650DK_7ID_ADCName;
 

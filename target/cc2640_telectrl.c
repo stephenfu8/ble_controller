@@ -288,10 +288,10 @@ ADCBufCC26XX_Object adcBufCC26xxObjects[CC2650DK_7ID_ADCBufCOUNT];
  *  The mapping of dio and internal signals is package dependent.
  */
 const ADCBufCC26XX_AdcChannelLutEntry ADCBufCC26XX_adcChannelLut[] = {
-    {Board_ALS_OUT,  ADC_COMPB_IN_AUXIO7},
-    {PIN_UNASSIGNED, ADC_COMPB_IN_DCOUPL},
-    {PIN_UNASSIGNED, ADC_COMPB_IN_VSS},
-    {PIN_UNASSIGNED, ADC_COMPB_IN_VDDS}
+    {Board_ADC,  ADC_COMPB_IN_AUXIO0},
+//    {PIN_UNASSIGNED, ADC_COMPB_IN_DCOUPL},
+//    {PIN_UNASSIGNED, ADC_COMPB_IN_VSS},
+//    {PIN_UNASSIGNED, ADC_COMPB_IN_VDDS}
 };
 
 const ADCBufCC26XX_HWAttrs adcBufCC26xxHWAttrs[CC2650DK_7ID_ADCBufCOUNT] = {
@@ -331,44 +331,17 @@ ADCCC26XX_Object adcCC26xxObjects[CC2650DK_7ID_ADCCOUNT];
 
 const ADCCC26XX_HWAttrs adcCC26xxHWAttrs[CC2650DK_7ID_ADCCOUNT] = {
    {
-        .adcDIO = Board_DIO23_ANALOG,
-        .adcCompBInput = ADC_COMPB_IN_AUXIO7,
+        .adcDIO = Board_ADC,
+        .adcCompBInput = ADC_COMPB_IN_AUXIO0,
         .refSource = ADCCC26XX_FIXED_REFERENCE,
         .samplingDuration = ADCCC26XX_SAMPLING_DURATION_2P7_US,
         .inputScalingEnabled = true,
         .triggerSource = ADCCC26XX_TRIGGER_MANUAL
     },
-    {
-        .adcDIO = PIN_UNASSIGNED,
-        .adcCompBInput = ADC_COMPB_IN_DCOUPL,
-        .refSource = ADCCC26XX_FIXED_REFERENCE,
-        .samplingDuration = ADCCC26XX_SAMPLING_DURATION_2P7_US,
-        .inputScalingEnabled = true,
-        .triggerSource = ADCCC26XX_TRIGGER_MANUAL
-    },
-    {
-        .adcDIO = PIN_UNASSIGNED,
-        .adcCompBInput = ADC_COMPB_IN_VSS,
-        .refSource = ADCCC26XX_FIXED_REFERENCE,
-        .samplingDuration = ADCCC26XX_SAMPLING_DURATION_2P7_US,
-        .inputScalingEnabled = true,
-        .triggerSource = ADCCC26XX_TRIGGER_MANUAL
-    },
-    {
-        .adcDIO = PIN_UNASSIGNED,
-        .adcCompBInput = ADC_COMPB_IN_VDDS,
-        .refSource = ADCCC26XX_FIXED_REFERENCE,
-        .samplingDuration = ADCCC26XX_SAMPLING_DURATION_2P7_US,
-        .inputScalingEnabled = true,
-        .triggerSource = ADCCC26XX_TRIGGER_MANUAL
-    }
 };
 
 const ADC_Config ADC_config[] = {
     {&ADCCC26XX_fxnTable, &adcCC26xxObjects[0], &adcCC26xxHWAttrs[0]},
-    {&ADCCC26XX_fxnTable, &adcCC26xxObjects[1], &adcCC26xxHWAttrs[1]},
-    {&ADCCC26XX_fxnTable, &adcCC26xxObjects[2], &adcCC26xxHWAttrs[2]},
-    {&ADCCC26XX_fxnTable, &adcCC26xxObjects[3], &adcCC26xxHWAttrs[3]},
     {NULL, NULL, NULL},
 };
 

@@ -89,6 +89,7 @@
 #include "hw_key.h"
 #include "hw_gpio.h"
 #include "hw_pwm.h"
+#include "hw_adc.h"
 #include "ti/drivers/PWM.h"
                                       
 #include "board.h"
@@ -578,7 +579,7 @@ static void SimpleBLEPeripheral_init(void)
 #endif // FEATURE_OAD
   
   
-//  HwGPIOInit(); // ≥ı ºªØGPIO
+//  HwGPIOInit(); 
 
 }
 
@@ -673,7 +674,6 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
       uint8_t color = Color_Switch_Index();
       HwRGBControl(color,PWM_Max_Duty_Fraction);
       HwRGBSwitch( color );     // switch the color
-      
     }
     if (events & SBP_PERIODIC_EVT_BREATH) //100ms
     {
@@ -695,7 +695,9 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
         HwRGBSwitch(color_index);               // start new color output
       }
       else if (btn3_switch == 0x33)             // music pwm 
-        ;
+      {
+        //  HwADCRead();
+      };
     }
 
 #ifdef FEATURE_OAD
