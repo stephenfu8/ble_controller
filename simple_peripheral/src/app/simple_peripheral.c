@@ -114,11 +114,11 @@
 #ifndef FEATURE_OAD
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic
 // parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     80
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     6//80
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic
 // parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     400//800
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     8//800
 #else //!FEATURE_OAD
 // Minimum connection interval (units of 1.25ms, 8=10ms) if automatic
 // parameter update request is enabled
@@ -147,6 +147,9 @@
 #define SBP_SHUTDOWN_TIME_EVT_PERIOD          500 //长按键(1000*3)ms后关机
 #define SBP_LEDSIGLESW_EVT_PERIOD             1000
 #define SBP_BREATH_EVT_PERIOD                 100
+#define SBP_MUSIC_EVT_PERIOD                  15
+
+
 #ifdef FEATURE_OAD
 // The size of an OAD packet.
 #define OAD_PACKET_SIZE                       ((OAD_BLOCK_SIZE) + 2)
@@ -169,6 +172,10 @@
 #define SBP_LED_EVT                           0x0020
 #define SBP_SHUTDOWN_EVT                      0x0040   
 #define SBP_PERIODIC_EVT_BREATH               0x0080
+
+
+#define SBP_PERIODIC_EVT_MUSIC               0x0100
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -200,6 +207,7 @@ static ICall_Semaphore sem;
 static Clock_Struct Shutdown_periodicClock;
 static Clock_Struct LED_Sigle_Color_Sw_Clock;
 static Clock_Struct Breath_periodicClock;
+static Clock_Struct Music_periodicClock;
 // Queue object used for app messages
 static Queue_Struct appMsg;
 static Queue_Handle appMsgQueue;
@@ -310,7 +318,7 @@ static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys);
 
 static void LED_Handler(uint8_t cmd);
 static void LED_Application_Handle(uint8_t cmd);
-
+static bStatus_t  SBP_NotifData(uint8_t *buf, uint16_t len);
 #ifdef FEATURE_OAD
 void SimpleBLEPeripheral_processOadWriteCB(uint8_t event, uint16_t connHandle,
                                            uint8_t *pData);
@@ -435,6 +443,9 @@ static void SimpleBLEPeripheral_init(void)
   
   Util_constructClock(&Breath_periodicClock, SimpleBLEPeripheral_clockHandler,
                       SBP_BREATH_EVT_PERIOD, SBP_BREATH_EVT_PERIOD, false, SBP_PERIODIC_EVT_BREATH);
+
+  Util_constructClock(&Music_periodicClock, SimpleBLEPeripheral_clockHandler,
+                      SBP_MUSIC_EVT_PERIOD, SBP_MUSIC_EVT_PERIOD, false, SBP_PERIODIC_EVT_MUSIC);
 
   dispHandle = Display_open(Display_Type_LCD, NULL);
   Board_initKeys(SimpleBLECentral_keyChangeHandler);      //key button 
@@ -578,7 +589,7 @@ static void SimpleBLEPeripheral_init(void)
   Display_print0(dispHandle, 0, 0, "BLE Peripheral");
 #endif // FEATURE_OAD
   
-  
+  HwADCInit();
 //  HwGPIOInit(); 
 
 }
@@ -694,12 +705,18 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
         HwRGBControl(color_index, value);       //set now color pwm duty fraction
         HwRGBSwitch(color_index);               // start new color output
       }
-      else if (btn3_switch == 0x33)             // music pwm 
-      {
-        //  HwADCRead();
-      };
     }
+    if (events & SBP_PERIODIC_EVT_MUSIC) //10ms
+    {
+      events &= ~SBP_PERIODIC_EVT_MUSIC;
+//      Color_Switch_Index();
+//      HwRGBSwitch(color_index);  
+      int16_t value = HwADCRead();
+      value = 0xFFFFF/4096 *value;
+        HwRGBControl(0, value);       //set now color pwm duty fraction
+        HwRGBSwitch(0);               // start new color output
 
+    }
 #ifdef FEATURE_OAD
     while (!Queue_empty(hOadQ))
     {
@@ -1250,6 +1267,29 @@ static void SimpleBLEPeripheral_enqueueMsg(uint8_t event, uint8_t state)
 
 /*********************************************************************
 *********************************************************************/
+static bStatus_t  SBP_NotifData(uint8_t *buf, uint16_t len)
+{
+  // Subtract the total packet overhead of ATT and L2CAP layer from notification payload
+  bStatus_t status;
+  attHandleValueNoti_t noti;
+  noti.handle = SBP_FindGATTServHdl(SIMPLEPROFILE_CHAR4_UUID);//30;
+  noti.len = len>20 ? 20 : len;
+
+  noti.pValue = (uint8 *)GATT_bm_alloc(0, ATT_HANDLE_VALUE_NOTI, len, NULL);
+  if ( noti.pValue != NULL )
+  {
+    memcpy(noti.pValue, buf, len);
+    status = GATT_Notification(0, &noti, FALSE);
+    
+    if(status != SUCCESS)
+    {
+      GATT_bm_free( (gattMsg_t *)&noti, ATT_HANDLE_VALUE_NOTI );
+    }
+    return status;
+  }
+  else
+    return bleNoResources;
+}
 /*********************************************************************
  * @fn      SimpleBLECentral_keyChangeHandler
  *
@@ -1281,7 +1321,19 @@ static void SimpleBLEPeripheral_handleKeys(uint8_t shift, uint8_t keys)
       Power_shutdown(NULL,NULL);
     }
     if (shutdown_count <=1)             // open or close adv
-      ;
+    {
+/*      uint8_t value;
+      GAPRole_GetParameter(GAPROLE_ADVERT_ENABLED, &value);
+      value =  value==TRUE?FALSE:TRUE;
+      GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t),
+                         &value);
+      */
+      int16_t value = HwADCRead();
+      uint8_t da[2];
+      da[0] = value&0xFF;
+      da[1] = value>>8;
+      SBP_NotifData(da,2);
+    }
     shutdown_count = 0;
   }
 #endif 
@@ -1328,12 +1380,15 @@ static void LED_Application_Handle(uint8_t cmd)
   case 0xFF: //close all LED   
     Util_stopClock(&LED_Sigle_Color_Sw_Clock);
     Util_stopClock(&Breath_periodicClock);
+    Util_stopClock(&Music_periodicClock);
+    
     HwPWMStopAll();
 
     break;
   case 0x21: // sigle color switch
   case 0x22: //seven color switch
     {
+      Util_stopClock(&Music_periodicClock);
       Util_stopClock(&Breath_periodicClock);
       Util_stopClock(&LED_Sigle_Color_Sw_Clock);
       uint8_t color = Color_Switch_Index();           //get color index
@@ -1346,28 +1401,36 @@ static void LED_Application_Handle(uint8_t cmd)
   case 0x31:   //sigle breath LED light
   case 0x32:    //seven breath LED light
      {
-      Util_stopClock(&LED_Sigle_Color_Sw_Clock);
-      if ( Util_isActive(&Breath_periodicClock) == FALSE)
-      {
-        uint8_t color = Color_Switch_Index();     //get color index
-        HwRGBControl(color,0);                    //set the color duty fraction from 0
-        HwRGBSwitch(color);                       //start pwm out
-        Util_startClock(&Breath_periodicClock);
-      }
-      btn3_switch = cmd;
+        Util_stopClock(&Music_periodicClock);
+        Util_stopClock(&LED_Sigle_Color_Sw_Clock);
+        if ( Util_isActive(&Breath_periodicClock) == FALSE)
+        {
+          uint8_t color = Color_Switch_Index();     //get color index
+          HwRGBControl(color,0);                    //set the color duty fraction from 0
+          HwRGBSwitch(color);                       //start pwm out
+          Util_startClock(&Breath_periodicClock);
+        }
+        btn3_switch = cmd;
     }
     break;
   case 0x33:
- 
+      Util_stopClock(&Music_periodicClock);
+      Util_stopClock(&Breath_periodicClock);
+      Util_stopClock(&LED_Sigle_Color_Sw_Clock);
+      HwPWMStopAll();
+      Util_startClock(&Music_periodicClock);
     break;  
   case 0x41:
     PWM_Max_Duty_Fraction = PWM_DUTY_FRACTION_LOW;
+    HwRGBControl(color_index,PWM_Max_Duty_Fraction);        //set the color duty fraction
     break; 
   case 0x42:
     PWM_Max_Duty_Fraction = PWM_DUTY_FRACTION_MID;
+    HwRGBControl(color_index,PWM_Max_Duty_Fraction);        //set the color duty fraction
     break;
   case 0x43:
     PWM_Max_Duty_Fraction = PWM_DUTY_FRACTION_MAX;
+    HwRGBControl(color_index,PWM_Max_Duty_Fraction);        //set the color duty fraction
     break;
 
   default:

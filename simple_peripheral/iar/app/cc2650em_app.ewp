@@ -3025,6 +3025,9 @@
       <name>$PROJ_DIR$\..\..\..\target\hw_adc.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\..\..\target\hw_adc.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\target\hw_key.c</name>
     </file>
     <file>
@@ -3122,6 +3125,9 @@
         <name>$TI_RTOS_DRIVERS_BASE$\ti\drivers\dma\UDMACC26XX.h</name>
       </file>
     </group>
+    <file>
+      <name>$TI_RTOS_DRIVERS_BASE$\ti\drivers\ADC.c</name>
+    </file>
   </group>
   <group>
     <name>ICall</name>
@@ -3235,10 +3241,10 @@
       <name>$PROJ_DIR$\..\..\..\..\..\src\profiles\roles\cc26xx\peripheral.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\..\..\..\..\src\profiles\simple_profile\cc26xx\simple_gatt_profile.c</name>
+      <name>$PROJ_DIR$\..\..\src\app\simple_gatt_profile.c</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\..\..\..\..\src\profiles\simple_profile\simple_gatt_profile.h</name>
+      <name>$PROJ_DIR$\..\..\src\app\simple_gatt_profile.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\..\..\src\profiles\keys\cc26xx\simplekeys.c</name>

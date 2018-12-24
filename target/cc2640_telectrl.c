@@ -288,7 +288,7 @@ ADCBufCC26XX_Object adcBufCC26xxObjects[CC2650DK_7ID_ADCBufCOUNT];
  *  The mapping of dio and internal signals is package dependent.
  */
 const ADCBufCC26XX_AdcChannelLutEntry ADCBufCC26XX_adcChannelLut[] = {
-    {Board_ADC,  ADC_COMPB_IN_AUXIO0},
+    {Board_ADC,  ADC_COMPB_IN_AUXIO4},
 //    {PIN_UNASSIGNED, ADC_COMPB_IN_DCOUPL},
 //    {PIN_UNASSIGNED, ADC_COMPB_IN_VSS},
 //    {PIN_UNASSIGNED, ADC_COMPB_IN_VDDS}
@@ -332,7 +332,7 @@ ADCCC26XX_Object adcCC26xxObjects[CC2650DK_7ID_ADCCOUNT];
 const ADCCC26XX_HWAttrs adcCC26xxHWAttrs[CC2650DK_7ID_ADCCOUNT] = {
    {
         .adcDIO = Board_ADC,
-        .adcCompBInput = ADC_COMPB_IN_AUXIO0,
+        .adcCompBInput = ADC_COMPB_IN_AUXIO4,
         .refSource = ADCCC26XX_FIXED_REFERENCE,
         .samplingDuration = ADCCC26XX_SAMPLING_DURATION_2P7_US,
         .inputScalingEnabled = true,
