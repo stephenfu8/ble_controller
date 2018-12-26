@@ -147,7 +147,7 @@
 #define SBP_SHUTDOWN_TIME_EVT_PERIOD          500 //长按键(1000*3)ms后关机
 #define SBP_LEDSIGLESW_EVT_PERIOD             1000
 #define SBP_BREATH_EVT_PERIOD                 100
-#define SBP_MUSIC_EVT_PERIOD                  15
+#define SBP_MUSIC_EVT_PERIOD                  1
 
 
 #ifdef FEATURE_OAD
@@ -589,7 +589,7 @@ static void SimpleBLEPeripheral_init(void)
   Display_print0(dispHandle, 0, 0, "BLE Peripheral");
 #endif // FEATURE_OAD
   
-  HwADCInit();
+ // HwADCInit();
 //  HwGPIOInit(); 
 
 }
@@ -706,15 +706,17 @@ static void SimpleBLEPeripheral_taskFxn(UArg a0, UArg a1)
         HwRGBSwitch(color_index);               // start new color output
       }
     }
-    if (events & SBP_PERIODIC_EVT_MUSIC) //10ms
+    if (events & SBP_PERIODIC_EVT_MUSIC) //10ms SBP_MUSIC_EVT_PERIOD
     {
       events &= ~SBP_PERIODIC_EVT_MUSIC;
 //      Color_Switch_Index();
-//      HwRGBSwitch(color_index);  
-      int16_t value = HwADCRead();
-      value = 0xFFFFF/4096 *value;
+//      HwRGBSwitch(color_index); 
+      uint32_t value = HwADCRead();
+      value = 0xFFFFF*value;
         HwRGBControl(0, value);       //set now color pwm duty fraction
-        HwRGBSwitch(0);               // start new color output
+
+        Color_Switch_Index();  
+      HwRGBSwitch(0);               // start new color output
 
     }
 #ifdef FEATURE_OAD

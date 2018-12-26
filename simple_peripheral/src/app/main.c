@@ -149,6 +149,7 @@ extern Display_Handle dispHandle;
  *
  * @return      None.
  */
+extern void TaskUART_createTask(void);
 int main()
 {
 #if defined( USE_FPGA )
