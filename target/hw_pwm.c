@@ -250,28 +250,39 @@ void HwRGBSwitch(uint8_t colour)
   {
     case 1: //红
       PWM_start(PWMHandle1R);
+      PWM_start(PWMHandle2R);
       break;
     case 2: //橙
       PWM_start(PWMHandle1R);
       PWM_start(PWMHandle1G);
+      PWM_start(PWMHandle2R);
+      PWM_start(PWMHandle2G);
       break;   
     case 3: //黄
       PWM_start(PWMHandle1R);
-      PWM_start(PWMHandle1G);
+      PWM_start(PWMHandle1G);      
+      PWM_start(PWMHandle2R);
+      PWM_start(PWMHandle2G);
       break;
     case 4: //绿
       PWM_start(PWMHandle1G);
+      PWM_start(PWMHandle2G);
       break;
     case 5: //青
       PWM_start(PWMHandle1G);
       PWM_start(PWMHandle1B);
+      PWM_start(PWMHandle2G);
+      PWM_start(PWMHandle2B);
       break;    
     case 6: //蓝
       PWM_start(PWMHandle1B);
+      PWM_start(PWMHandle2B);
       break;
     case 7: //紫
-      PWM_start(PWMHandle1R);
+      PWM_start(PWMHandle1R); 
       PWM_start(PWMHandle1B);
+      PWM_start(PWMHandle2R);
+      PWM_start(PWMHandle2B);
       break;
     default:
       break;
@@ -283,28 +294,41 @@ void HwRGBControl(uint8_t colour,uint32_t Duty_Fraction_value)
   {
     case 1: //红
       PWM_Set_Duty(PWM_1R,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2R,Duty_Fraction_value);
       break;
     case 2: //橙
       PWM_Set_Duty(PWM_1R,Duty_Fraction_value);
       PWM_Set_Duty(PWM_1G,Duty_Fraction_value/2);
+      
+      PWM_Set_Duty(PWM_2R,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2G,Duty_Fraction_value/2);
       break;   
     case 3: //黄
       PWM_Set_Duty(PWM_1R,Duty_Fraction_value);
       PWM_Set_Duty(PWM_1G,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2R,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2G,Duty_Fraction_value);
       break;
     case 4: //绿
       PWM_Set_Duty(PWM_1G,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2G,Duty_Fraction_value);
       break;
     case 5: //青
       PWM_Set_Duty(PWM_1G,Duty_Fraction_value);
       PWM_Set_Duty(PWM_1B,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2G,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2B,Duty_Fraction_value);
       break;    
     case 6: //蓝
       PWM_Set_Duty(PWM_1B,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2B,Duty_Fraction_value);
       break;
     case 7: //紫
       PWM_Set_Duty(PWM_1R,Duty_Fraction_value);
       PWM_Set_Duty(PWM_1B,Duty_Fraction_value);
+ 
+      PWM_Set_Duty(PWM_2R,Duty_Fraction_value);
+      PWM_Set_Duty(PWM_2B,Duty_Fraction_value);
       break;
     default:
       break;

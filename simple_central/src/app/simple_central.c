@@ -476,7 +476,7 @@ static void SimpleBLECentral_init(void)
   // configure RF Core SMI Command Link
   IOCPortConfigureSet(IOID_10, IOC_IOCFG0_PORT_ID_RFC_SMI_CL_OUT, IOC_STD_OUTPUT);
   IOCPortConfigureSet(IOID_9, IOC_IOCFG0_PORT_ID_RFC_SMI_CL_IN, IOC_STD_INPUT);
-
+      
   // configure RF Core tracer IO
   IOCPortConfigureSet(IOID_8, IOC_PORT_RFC_TRC, IOC_STD_OUTPUT);
 #else // !USE_FPGA
